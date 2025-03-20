@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('drug_id')->constrained('drugs')->onDelete('cascade');
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-            $table->boolean('like'); // true for like, false for dislike
+            $table->boolean('like')->default(0); // true for like, false for dislike
             $table->timestamps();
         });
   
