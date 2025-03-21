@@ -5,8 +5,10 @@ use App\Http\Controllers\Api\PatientController;
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\PharmacistController;
+use App\Http\Controllers\Api\OrderController;
 
 Route::apiResource('pharmacists', PharmacistController::class);
+Route::apiResource('orders', OrderController::class);
 
 
 Route::apiResource('patients', PatientController::class);
