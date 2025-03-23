@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\Profile\PasswordController;
 use App\Http\Controllers\Api\DrugConroller;
 use App\Http\Controllers\Api\DrugLikeController;
+use App\Http\resources\views\app;
 
 Route::post('auth/register',[AuthController::class,'register']);
 Route::post('auth/login',[AuthController::class,'login']);
@@ -14,7 +15,9 @@ Route::post('auth/verify_user_email',[AuthController::class,'verifyUserEmail']);
 Route::post('auth/resend_email_verification_link',[AuthController::class,'resendEmailVerificationLink']);
 
 Route::post('togglelike',[DrugLikeController::class, 'togglelike']);
-
+Route::get('/app',function(){
+    return view('app');
+});
 Route::middleware(['auth'])->group(function(){
     Route::post('/change_password',[PasswordController::class,'changeUserPassword']);
     
