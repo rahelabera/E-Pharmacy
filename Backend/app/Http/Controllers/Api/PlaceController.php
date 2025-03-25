@@ -24,17 +24,5 @@ class PlaceController extends Controller
         return response()->json($places);
     }
 
-    public function nearby(Request $request)
-    {
-        $lat = $request->lat;
-        $lng = $request->lng;
-        $radius = $request->radius;
-
-        $places = Place::selectRaw("*, ( 6371 * acos( cos( radians(?) ) * cos( radians( lat ) ) * cos( radians( lng ) - radians(?) ) + sin( radians(?) ) * sin( radians( lat ) ) ) ) AS distance", [$lat, $lng, $lat])
-            ->having("distance", "<", $radius)
-            ->orderBy("distance")
-            ->get();
-
-        return response()->json($places);
-    }
+   
 }
