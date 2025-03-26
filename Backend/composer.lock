@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b651455ec3d84e59f0553c06b68f827f",
+    "content-hash": "758a6ef915023fbb4196ff0731b8be8c",
     "packages": [
         {
             "name": "algolia/algoliasearch-client-php",
@@ -201,6 +201,56 @@
                 }
             ],
             "time": "2024-02-09T16:56:22+00:00"
+        },
+        {
+            "name": "dagim/telebirr-api",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/Dagimassefa/Telebirr-Package-Laravel.git",
+                "reference": "db8d30962cb8178bcbc00af530949a6efb414b80"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/Dagimassefa/Telebirr-Package-Laravel/zipball/db8d30962cb8178bcbc00af530949a6efb414b80",
+                "reference": "db8d30962cb8178bcbc00af530949a6efb414b80",
+                "shasum": ""
+            },
+            "require": {
+                "laravel/framework": ">=8.0"
+            },
+            "default-branch": true,
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Dagim\\TelebirrApi\\Providers\\TelebirrServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "App\\": "app/",
+                    "Dagim\\TelebirrApi\\": "src/",
+                    "Dagim\\TelebirrApi\\Tests\\": "tests/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Dagim Assefa",
+                    "email": "dagim.assefa098@gmail.com"
+                }
+            ],
+            "description": "Simplify integration of Telebirr's payment gateway into Laravel applications. Generate payment URLs, handle notifications, and ensure secure transactions effortlessly. With robust error handling and configuration flexibility, streamline Telebirr payment integration in your Laravel projects.",
+            "support": {
+                "issues": "https://github.com/Dagimassefa/Telebirr-Package-Laravel/issues",
+                "source": "https://github.com/Dagimassefa/Telebirr-Package-Laravel/tree/main"
+            },
+            "time": "2024-05-05T07:08:01+00:00"
         },
         {
             "name": "dflydev/dot-access-data",
@@ -8852,7 +8902,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "dagim/telebirr-api": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
