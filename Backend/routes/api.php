@@ -2,7 +2,7 @@
 
 use Illuminate\Http\Request;
 use App\Http\Controllers\Api\PatientController;
-
+use Chapa\Chapa\Chapa;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\PharmacistController;
 use App\Http\Controllers\Api\OrderController;
@@ -18,3 +18,31 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 require __DIR__ . '/auth.php';
+
+
+
+
+
+Route::post('/initialize-payment', function () {
+    $chapa = new Chapa();  // Create an instance of the Chapa class
+    
+    // Example data to initialize the payment
+    $data = [
+        'amount' => 1000,  // Replace with actual amount
+        'email' => 'user@example.com', // Replace with user's email
+        'tx_ref' => Chapa::generateReference('payment_prefix'),  // Generate a reference
+    ];
+
+    $response = $chapa->initializePayment($data);  // Call the initializePayment method
+
+    // Return the response back to the user
+    return response()->json($response);
+});
+Route::get('/verify-payment/{id}', function ($id) {
+    $chapa = new Chapa();  // Create an instance of the Chapa class
+    
+    $response = $chapa->verifyTransaction($id);  // Call the verifyTransaction method
+
+    return response()->json($response);
+});
+

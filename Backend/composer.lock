@@ -8,6 +8,7 @@
     "packages": [
         {
             "name": "algolia/algoliasearch-client-php",
+
             "version": "4.18.0",
             "source": {
                 "type": "git",
@@ -18,6 +19,7 @@
                 "type": "zip",
                 "url": "https://api.github.com/repos/algolia/algoliasearch-client-php/zipball/74bf05d5c48d7f7fa8a9ae27490691506303ca8e",
                 "reference": "74bf05d5c48d7f7fa8a9ae27490691506303ca8e",
+
                 "shasum": ""
             },
             "require": {
@@ -69,9 +71,11 @@
             ],
             "support": {
                 "issues": "https://github.com/algolia/algoliasearch-client-php/issues",
+
                 "source": "https://github.com/algolia/algoliasearch-client-php/tree/4.18.0"
             },
             "time": "2025-03-25T16:43:20+00:00"
+
         },
         {
             "name": "brick/math",
