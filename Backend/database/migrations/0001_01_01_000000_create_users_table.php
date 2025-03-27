@@ -15,8 +15,15 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
+            $table->tinyInteger('is_role')->default(1)->comment('0: Admin, 1: Patient, 2: Pharmacist');
             $table->string('password');
+            $table->string('phone')->nullable(); // Applicable to Pharmacist
+            $table->string('address')->nullable(); // Shared field for Patient and Pharmacist
+            $table->decimal('lat', 10, 7)->nullable(); // Shared for Patient and Pharmacist
+            $table->decimal('lng', 10, 7)->nullable(); // Shared for Patient and Pharmacist
+            $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending')->nullable()->comment('For Pharmacist only');
+            $table->string('license_image')->nullable()->comment('For Pharmacist only');
+            $table->timestamp('email_verified_at')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });

@@ -24,7 +24,8 @@ class LoginRequest extends FormRequest
         return [
             //
             'email'=>['required','email:filter'],
-            'password'=>['required','string']
+            'password'=>['required','string'],
+           
         ];
     }
 }
