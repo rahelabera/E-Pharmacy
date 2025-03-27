@@ -8,8 +8,11 @@ use App\Http\Controllers\Api\DrugLikeController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\PatientController; 
 use App\Http\Controllers\Api\PharmacistController;
+use App\Http\Controllers\Api\PaymentController;
 
-
+Route::get('success',[PaymentController::class,'success']);
+Route::get('error',[PaymentController::class,'error']);
+Route::post('pay',[PaymentController::class,'pay']);
 Route::post('auth/register', [AuthController::class, 'register']);
 Route::post('auth/login', [AuthController::class, 'login']);
 Route::post('auth/verify_user_email', [AuthController::class, 'verifyUserEmail']);
@@ -76,4 +79,5 @@ Route::middleware(['auth'])->group(function () {
         Route::put('patient/cart/update/{id}', [CartController::class, 'update']);
         Route::put('patient/cart/{id}/update', [CartController::class, 'update']);
     });
+
 });
