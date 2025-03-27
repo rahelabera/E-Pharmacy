@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use App\Events\PersonMoved;
 use App\Http\Controllers\Api\PlaceController;
 use App\Http\Controllers\Api\TelebirrController;
+use App\Http\Controllers\Api\GoogleAuthController;
+use Illuminate\Http\Request;
 
 Route::get('/', function () {
     return view('welcome');
@@ -20,7 +22,9 @@ Route::get('/move',function(){
 
 Route::post('/save-place', [PlaceController::class, 'store']);
 Route::get('/places', [PlaceController::class, 'index']);
-Route::get('/places/nearby', [PlaceController::class, 'nearby']);
+Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback']);
+Route::get('/auth/google/redirect', [GoogleAuthController::class ,'redirect']);
+
 
 Route::resource('', TelebirrController::class);
 Route::post('getjson', [TelebirrController::class, 'getJson']);
