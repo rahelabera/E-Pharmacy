@@ -6,7 +6,18 @@ use Chapa\Chapa\Chapa;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\PharmacistController;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\ImageController;
+use App\Http\Controllers\MessageController;
 
+Route::get('/messages', [MessageController::class, 'getAllMessages']);
+Route::post('/messages/send', [MessageController::class, 'sendMessage']);
+Route::get('/messages/{userId}', [MessageController::class, 'getMessages']);
+Route::delete('/messages/{id}', [MessageController::class, 'deleteMessage']);
+Route::post('/upload', [ImageController::class, 'store']); // Create
+Route::get('/images', [ImageController::class, 'index']); // Read all
+Route::get('/images/{id}', [ImageController::class, 'show']); // Read single
+Route::post('/images/{id}', [ImageController::class, 'update']); // Update
+Route::delete('/images/{id}', [ImageController::class, 'destroy']); // Delete
 Route::apiResource('pharmacists', PharmacistController::class);
 Route::apiResource('orders', OrderController::class);
 
