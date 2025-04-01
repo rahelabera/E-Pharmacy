@@ -19,14 +19,14 @@ class Pharmacist extends Model
         'password',
         'phone',
         'address',
-        'lat', // Pharmacist latitude
-        'lng', // Pharmacist longitude
-        'status', // Approval status
-        'license_image', // Added for license image
+        'lat', 
+        'lng', 
+        'status', 
+        'license_image', 
         'is_role',
     ];
 
-    // Ensure password is always hashed before saving (on both create & update)
+   
     public function setPasswordAttribute($value)
     {
         if ($value) {
@@ -34,7 +34,7 @@ class Pharmacist extends Model
         }
     }
 
-    // Relationship: If pharmacists are linked to users
+    
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
@@ -52,13 +52,13 @@ class Pharmacist extends Model
         ];
     }
 
-    // Accessor for prescription image URL
+    
     public function getPrescriptionImageAttribute($value)
     {
         return $value ? asset('storage/' . $value) : null;
     }
 
-    // Accessor for license image URL
+    
     public function getLicenseImageAttribute($value)
     {
         return $value ? asset('storage/' . $value) : null;

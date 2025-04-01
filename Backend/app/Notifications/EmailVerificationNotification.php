@@ -11,9 +11,7 @@ class EmailVerificationNotification extends Notification
     use Queueable;
     protected $url;
 
-    /**
-     * Create a new notification instance.
-     */
+    
     public function __construct($url = null)
     {
         $this->url = $url;
@@ -29,12 +27,10 @@ class EmailVerificationNotification extends Notification
         return ['mail'];
     }
 
-    /**
-     * Get the mail representation of the notification.
-     */
+    
     public function toMail(object $notifiable): MailMessage
     {
-        // If the URL is passed, it means this is the verification email
+      
         if ($this->url) {
             return (new MailMessage)
                 ->subject('Email Verification')
@@ -46,7 +42,7 @@ class EmailVerificationNotification extends Notification
                 ->line('If you did not register, no further action is required.');
         }
 
-        // If the URL is not passed (email is verified)
+        
         return (new MailMessage)
             ->subject('Email Verified')
             ->greeting('Dear ' . $notifiable->name . ',')

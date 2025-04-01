@@ -7,9 +7,19 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Http\JsonResponse;
 use App\Models\User;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\URL;
+
+use App\Mail\PasswordResetMail;
+
+use Illuminate\Support\Facades\DB;
+
+use Illuminate\Support\Facades\Mail;
 
 class PasswordService
+
 {
+    
     private function validateCurrentPassword($current_password)
     {
         if (!password_verify($current_password, Auth::user()->password)) {
@@ -21,9 +31,6 @@ class PasswordService
         }
     }
 
-    /**
-     * Change user password.
-     */
     public function changePassword($data): JsonResponse
     {
         $this->validateCurrentPassword($data['current_password']);
@@ -53,50 +60,51 @@ class PasswordService
         ], 401);
     }
 
-    /**
-     * Send password reset link.
-     */
-    public function sendResetLink(array $data): JsonResponse
-    {
-        $status = Password::sendResetLink(['email' => $data['email']]);
 
-        if ($status === Password::RESET_LINK_SENT) {
+    
+    public function sendResetLink(string $email): JsonResponse
+    {
+        $user = User::where('email', $email)->first();
+        
+        if (!$user) {
             return response()->json([
-                'status' => 'success',
-                'message' => 'Password reset link sent successfully.'
-            ]);
+                'status' => 'failed',
+                'message' => 'User not found.'
+            ], 404);
         }
-
-        return response()->json([
-            'status' => 'failed',
-            'message' => 'Unable to send password reset link. Please try again later.'
-        ], 400);
-    }
-
-    /**
-     * Reset user password.
-     */
-    public function resetPassword(array $data): JsonResponse
-    {
-        $status = Password::reset(
-            $data,
-            function (User $user, string $password) {
-                $user->forceFill([
-                    'password' => Hash::make($password)
-                ])->save();
-            }
+    
+      
+        $token = Str::random(60);
+    
+   
+        DB::table('password_resets')->updateOrInsert(
+            ['email' => $email],
+            ['token' => $token, 'created_at' => now()]
         );
-
-        if ($status === Password::PASSWORD_RESET) {
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Password has been reset successfully.'
-            ]);
-        }
-
+    
+       
+        $newPassword = Str::random(8); 
+        $hashedPassword = Hash::make($newPassword);
+    
+    
+        $user->forceFill(['password' => $hashedPassword])->save();
+    
+        $resetUrl = URL::to('/password/reset/' . $token);
+    
+       
+        Mail::send('emails.password_reset', ['password' => $newPassword, 'resetUrl' => $resetUrl], function ($message) use ($email) {
+            $message->to($email)->subject('Your Password Reset');
+        });
+    
         return response()->json([
-            'status' => 'failed',
-            'message' => 'Invalid or expired reset token.'
-        ], 400);
+            'status' => 'success',
+            'message' => 'Password reset email sent successfully. Check your email for the new password.'
+        ]);
     }
+    
+  
+   
+
+
+   
 }

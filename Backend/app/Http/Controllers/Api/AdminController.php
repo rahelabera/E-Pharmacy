@@ -1,31 +1,43 @@
 <?php
-
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PharmacistResource;
 use App\Models\Pharmacist;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class AdminController extends Controller
 {
-    // Fetch all unapproved pharmacists awaiting approval
-    public function getUnapprovedPharmacists()
-    {
-        $unapprovedPharmacists = Pharmacist::where('status', 'pending')->get();
+    
+   
 
-        if ($unapprovedPharmacists->isEmpty()) {
+    
+    public function viewLicenseImage($id)
+    {
+        $pharmacist = Pharmacist::find($id);
+
+        if (!$pharmacist) {
             return response()->json([
-                'message' => 'No pharmacists pending approval',
-                'data' => []
-            ]);
+                'message' => 'Pharmacist not found'
+            ], 404);
         }
 
-        return PharmacistResource::collection($unapprovedPharmacists);
+        if (!$pharmacist->license_image) {
+            return response()->json([
+                'message' => 'No license image found for this pharmacist'
+            ], 404);
+        }
+
+        
+        return response()->json([
+            'message' => 'License image fetched successfully',
+            'data' => asset(  $pharmacist->license_image)
+        ]);
     }
 
-    // Approve a pharmacist and allow registration if the prescription image is valid
+
     public function approvePharmacist(Request $request, $id)
     {
         $pharmacist = Pharmacist::find($id);
@@ -36,33 +48,31 @@ class AdminController extends Controller
             ], 404);
         }
 
-        // Check if prescription image exists
-        if (!$request->hasFile('prescription_image')) {
+        
+        if (!$pharmacist->license_image) {
             return response()->json([
-                'message' => 'Prescription image is required'
+                'message' => 'No license image available for this pharmacist'
             ], 422);
         }
 
-        // Validate prescription image
-        $request->validate([
-            'prescription_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
-        ]);
-
-        // Store the prescription image
-        $prescriptionImage = $request->file('prescription_image')->store('prescriptions', 'public');
-
-        // Update pharmacist's status and store prescription image path
+        
         $pharmacist->status = 'approved';
-        $pharmacist->prescription_image = $prescriptionImage;
         $pharmacist->save();
 
+       
+        $user = User::find($pharmacist->user_id);
+        if ($user) {
+            $user->status = 'approved';
+            $user->save();
+        }
+
         return response()->json([
-            'message' => 'Pharmacist approved and registered successfully',
+            'message' => 'Pharmacist approved and registration updated successfully',
             'data' => new PharmacistResource($pharmacist)
         ], 200);
     }
 
-    // Reject a pharmacist's registration request
+    
     public function rejectPharmacist($id)
     {
         $pharmacist = Pharmacist::find($id);
@@ -73,9 +83,16 @@ class AdminController extends Controller
             ], 404);
         }
 
-        // Reject the pharmacist's registration request
+        
         $pharmacist->status = 'rejected';
         $pharmacist->save();
+
+        
+        $user = User::find($pharmacist->user_id);
+        if ($user) {
+            $user->status = 'rejected';
+            $user->save();
+        }
 
         return response()->json([
             'message' => 'Pharmacist registration rejected',
@@ -83,18 +100,5 @@ class AdminController extends Controller
         ], 200);
     }
 
-    // Fetch all approved pharmacists
-    public function getApprovedPharmacists()
-    {
-        $approvedPharmacists = Pharmacist::where('status', 'approved')->get();
-
-        if ($approvedPharmacists->isEmpty()) {
-            return response()->json([
-                'message' => 'No approved pharmacists found',
-                'data' => []
-            ]);
-        }
-
-        return PharmacistResource::collection($approvedPharmacists);
-    }
+   
 }

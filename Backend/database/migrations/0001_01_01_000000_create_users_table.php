@@ -1,14 +1,10 @@
 <?php
-
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('users', function (Blueprint $table) {
@@ -17,12 +13,13 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->tinyInteger('is_role')->default(1)->comment('0: Admin, 1: Patient, 2: Pharmacist');
             $table->string('password');
-            $table->string('phone')->nullable(); // Applicable to Pharmacist
-            $table->string('address')->nullable(); // Shared field for Patient and Pharmacist
-            $table->decimal('lat', 10, 7)->nullable(); // Shared for Patient and Pharmacist
-            $table->decimal('lng', 10, 7)->nullable(); // Shared for Patient and Pharmacist
+            $table->string('phone')->nullable(); 
+            $table->string('address')->nullable(); 
+            $table->decimal('lat', 10, 7)->nullable(); 
+            $table->decimal('lng', 10, 7)->nullable(); 
             $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending')->nullable()->comment('For Pharmacist only');
             $table->string('license_image')->nullable()->comment('For Pharmacist only');
+            $table->string('pharmacy_name')->nullable()->comment('For Pharmacist only'); 
             $table->timestamp('email_verified_at')->nullable();
             $table->rememberToken();
             $table->timestamps();
@@ -44,9 +41,6 @@ return new class extends Migration
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('users');
