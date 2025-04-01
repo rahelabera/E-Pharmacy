@@ -23,8 +23,6 @@
     <button onclick="updatePosition()">Update position</button>
     <input id="pac-input" type="text" placeholder="Search for a place">
     <button id="save-place" onclick="savePlace()">Save Place</button>
-    <button id="show-places" onclick="showAllPlaces()">Show All Places</button>
-    <button id="show-nearby-places" onclick="showNearbyPlaces()">Show Nearby Places</button>
     <div id="map"></div>
     <script src="{{ asset('js/app.js') }}"></script>
     <!-- Load the Google Maps JavaScript API with the Places library -->
@@ -117,53 +115,7 @@
             });
         }
 
-        function showAllPlaces() {
-    fetch('/places')
-        .then(response => response.json())
-        .then(data => {
-            clearMarkers(); // Clear existing markers
-            data.forEach(place => {
-                const marker = new google.maps.Marker({
-                    position: { lat: place.lat, lng: place.lng },
-                    map: map,
-                    title: place.name
-                });
-                markers.push(marker); // Store the marker for future reference
-            });
-        })
-        .catch(error => {
-            console.error('Error:', error);
-        });
-}
-
-
-        function showNearbyPlaces() {
-            if (!selectedPlace) {
-                alert('Please select a place first.');
-                return;
-            }
-
-            const lat = selectedPlace.geometry.location.lat();
-            const lng = selectedPlace.geometry.location.lng();
-            const radius = 10; // Radius in kilometers
-
-            fetch(`/places/nearby?lat=${lat}&lng=${lng}&radius=${radius}`)
-                .then(response => response.json())
-                .then(data => {
-                    clearMarkers();
-                    data.forEach(place => {
-                        const marker = new google.maps.Marker({
-                            position: { lat: place.lat, lng: place.lng },
-                            map: map,
-                            title: place.name
-                        });
-                        markers.push(marker);
-                    });
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                });
-        }
+    
 
         function clearMarkers() {
             markers.forEach(marker => marker.setMap(null));

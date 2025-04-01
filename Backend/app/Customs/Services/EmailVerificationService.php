@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Notification;
 
 class EmailVerificationService
 {
-    // Send verification link
+ 
   
     public function sendVerificationLink(object $user): void
     {
@@ -73,9 +73,11 @@ class EmailVerificationService
         }
     }
     
+  
+    
     public function generateVerificationLink(string $email): ?string
     {
-        // Delete old token if it exists
+        
         $checkIfTokenExists = EmailVerificationToken::where('email', $email)->first();
         if ($checkIfTokenExists) {
             $checkIfTokenExists->delete();

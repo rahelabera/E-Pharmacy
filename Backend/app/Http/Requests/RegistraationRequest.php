@@ -7,9 +7,7 @@ use Illuminate\Validation\Rule;
 
 class RegistraationRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
+   
     public function authorize(): bool
     {
         return true;
@@ -26,31 +24,30 @@ class RegistraationRequest extends FormRequest
             'name' => ['required', 'string', 'min:2', 'max:255'],
             'email' => ['required', 'email:filter', Rule::unique('users', 'email')],
             'password' => ['required', 'string', 'min:6', 'confirmed'],
-            'is_role' => ['nullable', 'integer', Rule::in([0, 1, 2])], // Ensures only valid roles are allowed
+            'is_role' => ['nullable', 'integer', Rule::in([0, 1, 2])], 
+            'pharmacy_name' => ['nullable', 'string', 'max:255'],
 
-            // Address and Location Fields
+            
             'address' => ['nullable', 'string', 'max:255'],
-            'lat' => ['nullable', 'numeric', 'between:-90,90'], // Valid latitude range
-            'lng' => ['nullable', 'numeric', 'between:-180,180'], // Valid longitude range
+            'lat' => ['nullable', 'numeric', 'between:-90,90'], 
+            'lng' => ['nullable', 'numeric', 'between:-180,180'], 
 
-            // Prescription Image Validation (for Patients)
-            'prescription_image' => ['nullable', 'image', 'mimes:jpeg,png,jpg', 'max:2048'], // Max 2MB
+        
 
-            // Phone (for Pharmacist)
-            'phone' => ['nullable', 'string', 'regex:/^[0-9]{10,15}$/'], // Allows 10-15 digit phone numbers
+           
+            'phone' => ['nullable', 'string', 'regex:/^[0-9]{10,15}$/'], 
 
-            // License Image (for Pharmacist)
-            'license_image' => ['nullable', 'image', 'mimes:jpeg,png,jpg', 'max:2048'], // Max 2MB
+           
+            'license_image' => ['nullable', 'image', 'mimes:jpeg,png,jpg', 'max:2048'], 
         ];
     }
 
-    /**
-     * Customize error messages.
-     */
+    
     public function messages(): array
     {
         return [
             'name.required' => 'The name field is required.',
+            'pharmacy_name.required' => 'The Pharmacy name field is required.',
             'name.min' => 'The name must be at least 2 characters.',
             'email.required' => 'The email field is required.',
             'email.email' => 'Please enter a valid email address.',

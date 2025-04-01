@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class User extends Authenticatable implements JWTSubject
 {
@@ -16,7 +17,7 @@ class User extends Authenticatable implements JWTSubject
      *
      * @var list<string>
      */
-    protected $fillable = ['name', 'email', 'password', 'is_role', 'address', 'prescription_image','google_id','email_verified_at'];
+    protected $fillable = ['name', 'email', 'password', 'is_role', 'address', 'license_image','google_id','email_verified_at','pharmacy_name','lat','lng','phone_number','status'];
 
     /**
      * The attributes that should be hidden for serialization.
@@ -42,20 +43,21 @@ class User extends Authenticatable implements JWTSubject
         ];
     }
 
-    /**
-     * Relationship with Patient.
-     */
+  
     public function patient()
     {
         return $this->hasOne(Patient::class);
     }
 
-    /**
-     * Relationship with Pharmacist.
-     */
+  
     public function pharmacist()
     {
         return $this->hasOne(Pharmacist::class);
+    }
+
+    public function place(): BelongsTo
+    {
+        return $this->belongsTo(Place::class);
     }
 
     /**

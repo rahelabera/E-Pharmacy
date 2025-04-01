@@ -1,39 +1,37 @@
 <?php
-
 namespace App\Http\Controllers;
 
+use App\Customs\Services\ImageService; 
 use Illuminate\Http\Request;
-use App\Models\Image;
 
 class ImageController extends Controller
 {
+    protected $imageService;
+
+    public function __construct(ImageService $imageService)
+    {
+        $this->imageService = $imageService;
+    }
+
+
     public function store(Request $request)
     {
-        $image = Image::storeImage($request);
-        return response()->json(['message' => 'Image uploaded successfully', 'image' => $image], 201);
+        $image = $this->imageService->storeImage($request);
+        return response()->json(['message' => 'Profile picture updated successfully', 'image' => $image], 201);
     }
 
-    public function index()
+ 
+    public function show($userId)
     {
-        return response()->json(Image::getAllImages(), 200);
+        $image = $this->imageService->getProfilePicture($userId);
+        return $image ? response()->json($image, 200) : response()->json(['message' => 'No profile picture found'], 404);
     }
 
-    public function show($id)
-    {
-        $image = Image::getImageById($id);
-        return $image ? response()->json($image, 200) : response()->json(['message' => 'Image not found'], 404);
-    }
 
-    public function update(Request $request, $id)
+    public function destroy()
     {
-        $image = Image::updateImage($request, $id);
-        return $image ? response()->json(['message' => 'Image updated successfully', 'image' => $image], 200) : response()->json(['message' => 'Image not found'], 404);
-    }
-
-    public function destroy($id)
-    {
-        return Image::deleteImage($id) 
-            ? response()->json(['message' => 'Image deleted successfully'], 200)
-            : response()->json(['message' => 'Image not found'], 404);
+        return $this->imageService->deleteProfilePicture()
+            ? response()->json(['message' => 'Profile picture deleted successfully'], 200)
+            : response()->json(['message' => 'No profile picture found'], 404);
     }
 }
