@@ -28,18 +28,17 @@ class AuthController extends Controller
     public function register(RegistraationRequest $request)
     {
         $data = $request->validated();
+    
         
-        // Handle the license image upload if present
         if ($request->hasFile('license_image')) {
             $licenseImage = $request->file('license_image');
-            $imagePath = $licenseImage->store('licenses', 'public'); // Store in public disk
-            $data['license_image'] = $imagePath;  // Store the file path in the database
+            $imagePath = $licenseImage->store('licenses', 'public'); 
+            $data['license_image'] = $imagePath;  
         }
     
-        // Set the user role if provided
         $data['is_role'] = $request->input('is_role', 1);
         
-       // Store location data in the users table
+    
     if ($request->filled('place_name') && $request->filled('lat') && $request->filled('lng')) {
         $data['place_name'] = $request->input('place_name');
         $data['address'] = $request->input('address');
@@ -47,7 +46,6 @@ class AuthController extends Controller
         $data['lng'] = $request->input('lng');
     }
     
-        // Create the user
         $user = User::create($data);
     
         if ($user) {

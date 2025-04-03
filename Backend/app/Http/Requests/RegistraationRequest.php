@@ -21,9 +21,19 @@ class RegistraationRequest extends FormRequest
     public function rules(): array
     {
         return [
+
             'name' => ['required', 'string', 'min:2', 'max:255'],
             'email' => ['required', 'email:filter', Rule::unique('users', 'email')],
-            'password' => ['required', 'string', 'min:6', 'confirmed'],
+            'password' => [
+                'required',
+                'string',
+                'min:8',
+                'regex:/[A-Z]/',     
+                'regex:/[a-z]/',      
+                'regex:/[0-9]/',      
+                'regex:/[@$!%*?&]/', 
+                'confirmed',
+            ],
             'is_role' => ['nullable', 'integer', Rule::in([0, 1, 2])], 
             'pharmacy_name' => ['nullable', 'string', 'max:255'],
 
@@ -53,7 +63,7 @@ class RegistraationRequest extends FormRequest
             'email.email' => 'Please enter a valid email address.',
             'email.unique' => 'This email is already registered.',
             'password.required' => 'The password field is required.',
-            'password.min' => 'The password must be at least 6 characters long.',
+            'password.min' => 'The password must be at least 8 characters long.',
             'password.confirmed' => 'The password confirmation does not match.',
             'is_role.in' => 'Invalid role selection.',
 

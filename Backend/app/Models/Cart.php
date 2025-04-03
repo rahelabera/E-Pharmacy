@@ -14,7 +14,7 @@ class Cart extends Model
     // Define fillable fields to prevent mass assignment vulnerabilities
     protected $fillable = [
         'drug_id',
-        'patient_id',
+        'user_id',
         'quantity',
     ];
 

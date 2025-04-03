@@ -33,7 +33,7 @@ class AdminController extends Controller
         
         return response()->json([
             'message' => 'License image fetched successfully',
-            'data' => asset(  $pharmacist->license_image)
+            'data' => asset('app/public/' .  $pharmacist->license_image)
         ]);
     }
 

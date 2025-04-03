@@ -20,7 +20,13 @@ Route::post('/images/{id}', [ImageController::class, 'update']); // Update
 Route::delete('/images/{id}', [ImageController::class, 'destroy']); // Delete
 Route::apiResource('pharmacists', PharmacistController::class);
 Route::apiResource('orders', OrderController::class);
-
+// Payment Routes
+Route::get('success', [PaymentController::class, 'success']);
+Route::get('error', [PaymentController::class, 'error']);
+Route::post('pay', [PaymentController::class, 'pay']);
+// Google Authentication
+Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])->name('google.redirect');
+Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->name('google.callback');
 
 Route::apiResource('patients', PatientController::class);
 

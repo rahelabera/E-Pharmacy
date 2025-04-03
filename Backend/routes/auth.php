@@ -2,38 +2,27 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\CartController;
-use App\Http\Controllers\Api\DrugController;
+use App\Http\Controllers\Api\DrugConroller;
 use App\Http\Controllers\Api\Profile\PasswordController;
 use App\Http\Controllers\Api\DrugLikeController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\PatientController; 
 use App\Http\Controllers\Api\PharmacistController;
-use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ImageController;
 use App\Http\Controllers\GoogleAuthController;
 
 use App\Http\Controllers\Api\ForgotPasswordController;
 use App\Http\Controllers\Api\ResetPasswordController;
-Route::post('/forgot-password', [PasswordController::class, 'sendResetLink']);
-Route::post('/reset-password', [PasswordController::class, 'resetUserPassword']);
 
-Route::get('password/reset', [ForgotPasswordController::class, 'showLinkRequestForm'])->name('password.request');
-Route::post('password/email', [ForgotPasswordController::class, 'sendResetLinkEmail'])->name('password.email');
-Route::get('password/reset/{token}', [ResetPasswordController::class, 'showResetForm'])->name('password.reset');
-Route::post('password/reset', [ResetPasswordController::class, 'reset'])->name('password.update');
-// Google Authentication
-Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])->name('google.redirect');
-Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->name('google.callback');
+
 
 // Profile Picture Routes
 Route::post('/profile-picture', [ImageController::class, 'store']);  
 Route::get('/profile-picture/{userId}', [ImageController::class, 'show']); 
 Route::delete('/profile-picture', [ImageController::class, 'destroy']); 
 
-// Payment Routes
-Route::get('success', [PaymentController::class, 'success']);
-Route::get('error', [PaymentController::class, 'error']);
-Route::post('pay', [PaymentController::class, 'pay']);
+
 
 // Authentication Routes
 Route::post('auth/register', [AuthController::class, 'register']);
@@ -41,8 +30,9 @@ Route::post('auth/login', [AuthController::class, 'login']);
 Route::post('auth/refresh_token', [AuthController::class, 'refreshToken']);
 Route::post('auth/verify_user_email', [AuthController::class, 'verifyUserEmail']);
 Route::post('auth/resend_email_verification_link', [AuthController::class, 'resendEmailVerificationLink']);
-Route::post('auth/forgot_password', [AuthController::class, 'forgotPassword']);
+Route::post('/forgot-password', [PasswordController::class, 'sendResetLink']);
 
+Route::apiResource('carts', CartController::class);
 
 Route::middleware(['auth'])->group(function () {
     // Authenticated User Routes
@@ -54,10 +44,13 @@ Route::middleware(['auth'])->group(function () {
     Route::post('togglelike', [DrugLikeController::class, 'togglelike']);
 
     // Cart Routes
-    Route::apiResource('carts', CartController::class);
+    
     
     // Drug Routes
-    Route::apiResource('drugs', DrugController::class);
+    Route::put('drug/{id}', [DrugConroller::class, 'update']); 
+    Route::post('drugs', [DrugConroller::class, 'store']); 
+    Route::delete('drug/{id}', [DrugConroller::class, 'delete']); 
+    
 
     // Pharmacist Routes
     Route::get('/pharmacists', [PharmacistController::class, 'index']); 
@@ -85,22 +78,20 @@ Route::middleware(['auth'])->group(function () {
 
     // Pharmacist Routes
     Route::middleware(['pharmacist'])->group(function () {
-        Route::post('pharmacist/drug/update/{id}', [PharmacistController::class, 'updateDrug']);
-        Route::delete('pharmacist/drug/delete/{id}', [PharmacistController::class, 'deleteDrug']);
+        Route::post('pharmacist/drug/{id}', [PharmacistController::class, 'updateDrug']);
+        Route::delete('pharmacist/drug/{id}', [PharmacistController::class, 'deleteDrug']);
     });
 
     // Patient Routes
     Route::middleware(['patient'])->group(function () {
-        Route::put('patient/cart/update/{id}', [CartController::class, 'update']);
-        Route::put('patient/cart/{id}/update', [CartController::class, 'update']);
+        Route::put('patient/cart/{id}', [CartController::class, 'update']);
     });
 });
 
 // Public Drug Routes
-Route::get('drugs', [DrugController::class, 'index']); 
-Route::get('drugs/{id}', [DrugController::class, 'show']); 
+Route::get('drugs', [DrugConroller::class, 'index']); 
+Route::get('drugs/{id}', [DrugConroller::class, 'show']); 
 
-// Public View
-Route::get('/app', function () {
-    return view('app');
-});
+
+
+
