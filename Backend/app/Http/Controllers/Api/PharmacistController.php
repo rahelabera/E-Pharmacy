@@ -5,83 +5,132 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PharmacistResource;
 use App\Models\Pharmacist;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-
+use Illuminate\Support\Facades\Storage;
 
 class PharmacistController extends Controller
 {
-    //
+    
     public function index(Request $request)
     {
-        $pharmacist_query = Pharmacist::query();
-        $search_param = $request->query('search');
+        $pharmacists = User::where('is_role', 2);  
 
+        
+        $search_param = $request->query('search');
         if ($search_param) {
-            $pharmacist_query->where('name', 'LIKE', "%{$search_param}%")
-                ->orWhere('address', 'LIKE', "%{$search_param}%")
-                ->orWhere('phone', 'LIKE', "%{$search_param}%")
-                ->orWhere('email', 'LIKE', "%{$search_param}%");
+            $pharmacists->where(function($query) use ($search_param) {
+                $query->where('name', 'LIKE', "%{$search_param}%")
+                    ->orWhere('address', 'LIKE', "%{$search_param}%")
+                    ->orWhere('phone', 'LIKE', "%{$search_param}%")
+                    ->orWhere('email', 'LIKE', "%{$search_param}%");
+            });
         }
 
-        $pharmacists = $pharmacist_query->get();
+        
+        $pharmacists = $pharmacists->get();
 
+        
         if ($pharmacists->isEmpty()) {
             return response()->json([
-                'message' => 'No pharmacist found',
+                'status' => 'error',
+                'message' => 'No pharmacists found',
                 'data' => []
-            ]);
+            ], 404);
         }
 
-        return PharmacistResource::collection($pharmacists);
-    }
-
-
-
-
-    public function show(Pharmacist $pharmacist)
-    {
-        return new PharmacistResource($pharmacist);
-    }
-
-    public function update(Request $request, Pharmacist $pharmacist)
-    {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|max:255',
-            'password' => 'required|string|max:255',
-            'phone' => 'string|max:255',
-            'address' => 'string|max:255'
+        
+        return response()->json([
+            'status' => 'success',
+            'pharmacists' => $pharmacists
         ]);
+    }
 
-        if ($validator->fails()) {
+   
+    public function show(User $pharmacist)
+    {
+        
+        if ($pharmacist->is_role !== 2) {
             return response()->json([
-                'message' => 'All fields are mandatory',
-                'error' => $validator->messages(),
-            ], 422);
+                'status' => 'error',
+                'message' => 'User is not a pharmacist'
+            ], 400);
         }
 
-        $pharmacist->update([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => $request->password,
-            'phone' => $request->phone,
-            'address' => $request->address,
-        ]);
+        
         return response()->json([
-            'message' => 'Pharmacist Updated Successfully',
+            'status' => 'success',
             'data' => new PharmacistResource($pharmacist)
-        ], 200);
+        ]);
     }
 
-    public function destroy(Pharmacist $pharmacist)
+    
+    public function update(Request $request, User $pharmacist)
     {
-        $pharmacist->delete();
+        
+        if ($pharmacist->is_role !== 2) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'User is not a pharmacist'
+            ], 400);
+        }
+
+        
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|max:255|email|unique:users,email,' . $pharmacist->id,
+            'phone' => 'nullable|string|max:255',
+            'address' => 'nullable|string|max:255',
+            'license_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',  
+        ]);
+
+        
+        if ($request->hasFile('license_image')) {
+            
+            if ($pharmacist->license_image && Storage::exists('public/' . $pharmacist->license_image)) {
+                Storage::delete('public/' . $pharmacist->license_image);
+            }
+
+            
+            $licenseImagePath = $request->file('license_image')->store('licenses', 'public');
+            $pharmacist->license_image = $licenseImagePath;
+        }
+
+    
+        $pharmacist->update($validated);
+
+        
         return response()->json([
-            'message' => 'Pharmacist Deleted Successfully',
-        ], 200);
+            'status' => 'success',
+            'message' => 'Pharmacist updated successfully',
+            'data' => new PharmacistResource($pharmacist)
+        ]);
     }
 
+    
+    public function destroy(User $pharmacist)
+    {
+        
+        if ($pharmacist->is_role !== 2) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'User is not a pharmacist'
+            ], 400);
+        }
 
+     
+        if ($pharmacist->license_image && Storage::exists('public/' . $pharmacist->license_image)) {
+            Storage::delete('public/' . $pharmacist->license_image);
+        }
+
+        
+        $pharmacist->delete();
+
+        
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Pharmacist deleted successfully'
+        ]);
+    }
 }
-

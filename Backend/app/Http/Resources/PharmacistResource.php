@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
@@ -14,18 +13,19 @@ class PharmacistResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        //return parent::toArray($request);
         return [
-            'id' => $this->id,
+            'id' => (string) $this->id, 
             'name' => $this->name,
             'email' => $this->email,
-            'passowrd' => $this->password,
             'phone' => $this->phone,
             'address' => $this->address,
-            'is_verified' => $this->is_verified,
+            'is_verified' => (bool) $this->is_verified, 
             'status' => $this->status,
             'role' => $this->role,
-            'created_at' => $this->created_at,
+            'license_image' => $this->license_image ? asset('storage/' . $this->license_image) : null,
+            'pharmacy_name' => $this->pharmacy_name, 
+            'created_at' => $this->created_at->toISOString(), 
+            'updated_at' => $this->updated_at->toISOString(),
         ];
     }
 }

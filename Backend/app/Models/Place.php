@@ -9,4 +9,8 @@ class Place extends Model
     use HasFactory;
 
     protected $fillable = ['name', 'address', 'lat', 'lng'];
+    public function users(): HasMany
+    {
+        return $this->hasMany(User::class);
+    }
 }

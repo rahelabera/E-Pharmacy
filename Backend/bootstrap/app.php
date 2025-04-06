@@ -5,6 +5,9 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use App\Http\Middleware\AdminMiddleware;
+use App\Http\Middleware\PatientMiddleware;
+use App\Http\Middleware\PharmacistMiddleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -14,7 +17,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
+        $middleware -> alias([
+            'admin'=> AdminMiddleware::class,
+            'patient'=> PatientMiddleware::class,
+            'pharmacist'=> PharmacistMiddleware::class
+        ]);
+
     })
     ->withExceptions(function (Exceptions $exceptions) {
 

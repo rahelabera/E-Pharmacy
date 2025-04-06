@@ -13,10 +13,10 @@ class CartController extends Controller
     //
     public function index()
     {
-        $carts= Cart::get();
-        if ($carts->count()>0)
+        $cart= Cart::get();
+        if ($cart->count()>0)
         {
-            return CartResource::collection($carts);
+            return CartResource::collection($cart);
         }
         else
         {
@@ -41,12 +41,12 @@ class CartController extends Controller
     }
 
     // Get the logged-in patient ID
-    $patient_id = Auth::id();
+    $user_id = Auth::id();
   
 
     // Add drug to cart
     $cart = Cart::create([
-        'patient_id' => $patient_id,
+        'user_id' => $user_id,
         'drug_id' => $request->drug_id,
         'quantity' => $request->quantity,
     ]);

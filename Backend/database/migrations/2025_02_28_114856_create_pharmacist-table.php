@@ -1,32 +1,30 @@
 <?php
-
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
-    /**
-     * Run the migrations.
-     */
+  
     public function up(): void
     {
-        Schema::create('pharmacist', function (Blueprint $table) {
-            $table->id();// auto incrementing primary key
-            $table->string('name');//pharmacist full name
-            $table->string('email')->unique(); // Ensures each pharmacist has a unique email for login
-            $table->string('password'); // Stores the encrypted password for authentication
-            $table->string('phone')->nullable(); // Optional phone number for contact purposes
-            $table->string('address')->nullable(); // Optional address field for location details
-            $table->timestamps(); //Stores `created_at` and `updated_at` timestamps
-
+        Schema::create('pharmacists', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('email')->unique();
+            $table->string('password');
+            $table->string('phone')->nullable();
+            $table->string('address')->nullable(); 
+            $table->decimal('lat', 10, 7)->nullable(); 
+            $table->decimal('lng', 10, 7)->nullable(); 
+            $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending'); 
+            $table->string('license_image')->nullable(); 
+            $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
+   
     public function down(): void
     {
-        //
+        Schema::dropIfExists('pharmacists');
     }
 };

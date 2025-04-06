@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers\Api\Profile;
 
 use App\Http\Controllers\Controller;
@@ -9,13 +8,20 @@ use App\Customs\Services\PasswordService;
 
 class PasswordController extends Controller
 {
-    //
-    public function __construct(private PasswordService $service){
+    public function __construct(public PasswordService $service) {}
 
-    }
-    public function changeUserPassword(ChangePasswordRequest $request){
+   
+    public function changeUserPassword(ChangePasswordRequest $request)
+    {
         return $this->service->changePassword($request->validated());
     }
+
+    public function sendResetLink(Request $request)
+    {
+        $request->validate(['email' => 'required|email']); 
+        return $this->service->sendResetLink($request->email);
+    }
+    
     
 
 }
