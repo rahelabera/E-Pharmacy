@@ -56,7 +56,7 @@ const Page = () => {
                 { ...register("email") }
                 type="email"
                 id="email"
-                className="mt-1 block w-full px-3 py-2 md:py-2.5 border border-gray-300 rounded-sm shadow-sm text-sm md:text-base focus:ring-0 focus:outline-none placeholder:text-xs"
+                className="mt-1 block w-full px-3 py-2 md:py-2.5 border border-gray-300 rounded-sm text-sm md:text-base focus:ring-0 focus:outline-none placeholder:text-xs"
                 placeholder='example@gmail.com'
               />
             </div>
@@ -66,7 +66,7 @@ const Page = () => {
               <label htmlFor="password" className="block  font-medium text-gray-700">
                 Password
               </label>
-              <div className="flex justify-between items-center mt-1 w-full px-3  py-2 md:py-2.5 border border-gray-300 rounded-sm shadow-sm text-sm md:text-base ">
+              <div className="flex justify-between items-center mt-1 w-full px-3  py-2 md:py-2.5 border border-gray-300 rounded-sm text-sm md:text-base ">
 
                 <input
                   { ...register("password") }
@@ -86,7 +86,7 @@ const Page = () => {
           </div>
           <button
             type="submit"
-            className="w-full flex justify-center text-sm md:text-base   py-2 md:py-2.5  px-4 border border-transparent rounded-sm shadow-sm  text-white bg-primary-100 hover:bg-primary-100/90 "
+            className="w-full flex justify-center text-sm md:text-base   py-2 md:py-2.5  px-4 border border-transparent rounded-sm text-white bg-primary-100 hover:bg-primary-100/90 "
           >
             Sign Up
           </button>
@@ -98,7 +98,7 @@ const Page = () => {
         </div>
         <button
           type="button"
-          className="mt-6 w-full flex gap-2 justify-center  py-2 md:py-2.5  px-4 border border-gray-300 rounded-sm shadow-sm text-sm md:text-base font-medium text-gray-700 bg-white hover:bg-gray-50 "
+          className="mt-6 w-full flex gap-2 justify-center  py-2 md:py-2.5  px-4 border border-gray-300 rounded-sm text-sm md:text-base font-medium text-gray-700 bg-white hover:bg-gray-50 "
         >
           <Image src={ Google } alt='google icon' className='w-5' /> Sign Up with Google
         </button>
