@@ -182,7 +182,7 @@ export default function Home() {
           <Image className="w-1/3 object-cover rounded-xl" src={ PictureSix } alt="pills" />
         </div>
       </div>
-
+      <div id="modal-container" className="modal-container"></div>
 
     </div >
   );
