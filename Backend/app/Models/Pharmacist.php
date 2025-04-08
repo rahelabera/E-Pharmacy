@@ -61,6 +61,6 @@ class Pharmacist extends Model
     
     public function getLicenseImageAttribute($value)
     {
-        return $value ? asset('storage/app/public/' . $value) : null;
+        return $value ? asset('storage/' . $value) : null;
     }
 }

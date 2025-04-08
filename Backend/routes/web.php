@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Events\PersonMoved;
 use App\Http\Controllers\Api\PlaceController;
 use App\Http\Controllers\Api\TelebirrController;
-use App\Http\Controllers\Api\GoogleAuthController;
+use App\Http\Controllers\GoogleAuthController;
 use Illuminate\Http\Request;
 
 Route::get('/', function () {

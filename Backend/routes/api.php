@@ -63,3 +63,6 @@ Route::get('/verify-payment/{id}', function ($id) {
     return response()->json($response);
 });
 
+Route::get('/app', function () {
+    return view('app');
+});
