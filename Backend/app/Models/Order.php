@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -15,7 +14,7 @@ class Order extends Model
         'total_amount',
         'status',
     ];
-    //Define relationships
+
     public function customer()
     {
         return $this->belongsTo(User::class, 'user_id');

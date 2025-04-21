@@ -3,6 +3,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\Api\DrugConroller;
+use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\Profile\PasswordController;
 use App\Http\Controllers\Api\DrugLikeController;
 use App\Http\Controllers\Api\AdminController;
@@ -11,16 +12,15 @@ use App\Http\Controllers\Api\PharmacistController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ImageController;
 use App\Http\Controllers\GoogleAuthController;
-
+use App\Http\Controllers\Api\PrescriptionController;
+use App\Http\Controllers\MessageController;
 use App\Http\Controllers\Api\ForgotPasswordController;
 use App\Http\Controllers\Api\ResetPasswordController;
+use App\Http\Controllers\Api\InventoryLogController;
+use App\Http\Controllers\Api\PlaceController;
 
 
 
-// Profile Picture Routes
-Route::post('/profile-picture', [ImageController::class, 'store']);  
-Route::get('/profile-picture/{userId}', [ImageController::class, 'show']); 
-Route::delete('/profile-picture', [ImageController::class, 'destroy']); 
 
 
 
@@ -32,7 +32,18 @@ Route::post('auth/verify_user_email', [AuthController::class, 'verifyUserEmail']
 Route::post('auth/resend_email_verification_link', [AuthController::class, 'resendEmailVerificationLink']);
 Route::post('/forgot-password', [PasswordController::class, 'sendResetLink']);
 
-Route::apiResource('carts', CartController::class);
+//Google oauth Routes
+
+Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback']);
+Route::get('/auth/google', [GoogleAuthController::class ,'redirect'])->name('google-auth');
+
+//Places Route
+
+Route::get('/user-locations', [PlaceController::class, 'userLocations']);
+Route::get('/app', function () {
+    return view('app');
+});
+
 
 Route::middleware(['auth'])->group(function () {
     // Authenticated User Routes
@@ -43,21 +54,44 @@ Route::middleware(['auth'])->group(function () {
     // Drug Like Routes
     Route::post('togglelike', [DrugLikeController::class, 'togglelike']);
 
-    // Cart Routes
+
+    //Prescription Routes
+    Route::post('/prescriptions/upload', [PrescriptionController::class, 'upload']);
+   
+    // Order Routes
+
+    Route::get('/orders', [OrderController::class, 'userOrders']); // for regular users
+    Route::get('/orders/{id}', [OrderController::class, 'show']);
+    Route::post('/orders', [OrderController::class, 'store']);
+
+    //Image Routes
+    Route::post('/image', [ImageController::class, 'store']);      
+    Route::get('/image', [ImageController::class, 'show']);        
+    Route::delete('/image', [ImageController::class, 'destroy']); 
     
-    
-    // Drug Routes
-    Route::put('drug/{id}', [DrugConroller::class, 'update']); 
-    Route::post('drugs', [DrugConroller::class, 'store']); 
-    Route::delete('drug/{id}', [DrugConroller::class, 'delete']); 
+  
     
 
     // Pharmacist Routes
     Route::get('/pharmacists', [PharmacistController::class, 'index']); 
 
+    
+
+    //Prescription Route 
+    Route::post('/prescriptions', [PrescriptionController::class, 'upload']);
+    
+
     // Patient Routes
     Route::get('/patients', [PatientController::class, 'getAllPatients']); 
     Route::get('/patients/search', [PatientController::class, 'index']); 
+
+    //Message Routes
+    Route::post('/messages/send', [MessageController::class, 'sendMessage']);
+    // Get conversation with a specific user (2-way chat)
+    Route::get('/messages/conversation/{userId}', [MessageController::class, 'getConversationWithUser']);
+    // Mark a message as read
+    Route::patch('/messages/{id}/read', [MessageController::class, 'markAsRead']);
+    Route::delete('/messages/{id}', [MessageController::class, 'deleteMessage']);
 
     // Admin Routes (Restricted)
     Route::middleware(['admin'])->group(function () {
@@ -74,18 +108,35 @@ Route::middleware(['auth'])->group(function () {
         Route::post('admin/pharmacists', [PharmacistController::class, 'store']); 
         Route::put('admin/pharmacists/{pharmacist}', [PharmacistController::class, 'update']); 
         Route::delete('admin/pharmacists/{pharmacist}', [PharmacistController::class, 'destroy']); 
+
+        //order admin routes 
+        
+        
+        Route::get('/admin/orders', [OrderController::class, 'adminOrders']);
     });
 
     // Pharmacist Routes
     Route::middleware(['pharmacist'])->group(function () {
         Route::post('pharmacist/drug/{id}', [PharmacistController::class, 'updateDrug']);
         Route::delete('pharmacist/drug/{id}', [PharmacistController::class, 'deleteDrug']);
+
+        //Prescriptions Route
+        Route::post('/prescriptions/dispense/{uid}', [PrescriptionController::class, 'dispense']);
+        //Inventory logs
+        Route::get('inventory/logs', [InventoryLogController::class, 'index']);
+        //Stocks
+        Route::get('/low-stock/alerts', [DrugConroller::class, 'lowStockAlerts']); 
+        Route::patch('/{drug}/adjust-stock', [DrugConroller::class, 'adjustStock']);
+          
+        // Drug Routes
+        Route::put('drug/{id}', [DrugConroller::class, 'update']); 
+        Route::post('drugs', [DrugConroller::class, 'store']); 
+        Route::delete('drug/{id}', [DrugConroller::class, 'delete']); 
+
+
     });
 
-    // Patient Routes
-    Route::middleware(['patient'])->group(function () {
-        Route::put('patient/cart/{id}', [CartController::class, 'update']);
-    });
+    
 });
 
 // Public Drug Routes

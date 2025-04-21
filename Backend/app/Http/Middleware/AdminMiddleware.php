@@ -18,21 +18,21 @@ class AdminMiddleware
      */
     public function handle(Request $request, Closure $next)
     {
-        // Check if the user is authenticated
+        
         if (Auth::check()) {
-            // Check if the user is an admin (assuming 0 is the admin role)
+           
             if (Auth::user()->is_role == 0) {
-                // Proceed to the next middleware or controller
+                
                 return $next($request);
             } else {
-                // If not an admin, logout and redirect to login
+               
                 Auth::logout();
-                return redirect()->route('login'); // or your login route
+                return redirect()->route('login'); 
             }
         }
 
-        // If not authenticated, logout and redirect to login
+        
         Auth::logout();
-        return redirect()->route('login'); // or your login route
+        return redirect()->route('login');
     }
 }

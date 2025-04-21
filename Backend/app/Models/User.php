@@ -55,10 +55,10 @@ class User extends Authenticatable implements JWTSubject
         return $this->hasOne(Pharmacist::class);
     }
 
-    public function place(): BelongsTo
-    {
-        return $this->belongsTo(Place::class);
-    }
+    public function place()
+{
+    return $this->hasOne(Place::class);
+}
 
     /**
      * Get the identifier that will be stored in the subject claim of the JWT.

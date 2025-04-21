@@ -20,9 +20,7 @@
     </style>
 </head>
 <body>
-    <button onclick="updatePosition()">Update position</button>
     <input id="pac-input" type="text" placeholder="Search for a place">
-    <button id="save-place" onclick="savePlace()">Save Place</button>
     <div id="map"></div>
     <script src="{{ asset('js/app.js') }}"></script>
     <!-- Load the Google Maps JavaScript API with the Places library -->
@@ -80,40 +78,40 @@
             });
         }
 
-        function savePlace() {
-            if (!selectedPlace) {
-                alert('Please select a place first.');
-                return;
-            }
+        // function savePlace() {
+        //     if (!selectedPlace) {
+        //         alert('Please select a place first.');
+        //         return;
+        //     }
 
-            const placeData = {
-                name: selectedPlace.name,
-                address: selectedPlace.formatted_address,
-                lat: selectedPlace.geometry.location.lat(),
-                lng: selectedPlace.geometry.location.lng()
-            };
+        //     const placeData = {
+        //         name: selectedPlace.name,
+        //         address: selectedPlace.formatted_address,
+        //         lat: selectedPlace.geometry.location.lat(),
+        //         lng: selectedPlace.geometry.location.lng()
+        //     };
 
-            fetch('/save-place', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                },
-                body: JSON.stringify(placeData)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Place saved successfully!');
-                } else {
-                    alert('Failed to save place.');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred while saving the place.');
-            });
-        }
+        //     fetch('/save-place', {
+        //         method: 'POST',
+        //         headers: {
+        //             'Content-Type': 'application/json',
+        //             'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        //         },
+        //         body: JSON.stringify(placeData)
+        //     })
+        //     .then(response => response.json())
+        //     .then(data => {
+        //         if (data.success) {
+        //             alert('Place saved successfully!');
+        //         } else {
+        //             alert('Failed to save place.');
+        //         }
+        //     })
+        //     .catch(error => {
+        //         console.error('Error:', error);
+        //         alert('An error occurred while saving the place.');
+        //     });
+        // }
 
     
 

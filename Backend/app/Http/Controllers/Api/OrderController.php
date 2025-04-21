@@ -1,90 +1,155 @@
 <?php
-
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\OrderResource;
 use App\Models\Order;
+use App\Models\Drug;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
+use App\Models\InventoryLog;
+use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
-    {
-        $orders = Order::with('customer')->get();
+    
+    public function store(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'items' => 'required|array|min:1',
+        'items.*.drug_id' => 'required|exists:drugs,id',
+        'items.*.quantity' => 'required|integer|min:1',
+    ]);
 
-        if ($orders->isEmpty()) {
-            return response()->json([
-                'message' => 'No orders found',
-                'data' => []
-            ]);
-        }
-
-        return OrderResource::collection($orders);
+    if ($validator->fails()) {
+        return response()->json([
+            'message' => 'Validation failed',
+            'errors' => $validator->errors(),
+        ], 422);
     }
 
-    // Create a new order
-    public function store(Request $request)
-    {
-        //Validate input
-        $validator = Validator::make($request->all(), [
-            'user_id' => 'required|exists:users,id',
-            'items' => 'required|array',
-            'total_amount' => 'required|numeric|min:0',
-        ]);
+    $user = Auth::user();
+    $itemsWithDetails = [];
+    $totalAmount = 0;
 
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'error' => $validator->errors(),
-            ], 422);
+    DB::beginTransaction();
+
+    try {
+        foreach ($request->items as $item) {
+            $drug = Drug::lockForUpdate()->findOrFail($item['drug_id']);
+            $quantity = $item['quantity'];
+
+         
+            if ($drug->stock === 0) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => "{$drug->name} is out of stock and cannot be ordered."
+                ], 400);
+            }
+
+        
+            if ($drug->stock < $quantity) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => "Insufficient stock for {$drug->name}. Available: {$drug->stock}"
+                ], 400);
+            }
+
+            
+            $drug->stock -= $quantity;
+            $drug->save();
+
+           
+            InventoryLog::create([
+                'drug_id' => $drug->id,
+                'user_id' => $user->id,
+                'change_type' => 'sale',
+                'quantity_changed' => -$quantity,
+                'reason' => "Order placed",
+            ]);
+
+            $price = $drug->price;
+            $subtotal = $price * $quantity;
+
+            $itemsWithDetails[] = [
+                'drug_id' => $drug->id,
+                'name' => $drug->name,
+                'price' => $price,
+                'quantity' => $quantity,
+                'subtotal' => $subtotal,
+            ];
+
+            $totalAmount += $subtotal;
         }
-        //Create the order
-        $order = Order::create([
-            'user_id' => $request->user_id,
-            'items' => json_encode($request->items),
-            'total_amount' => $request->total_amount,
-            'status' => 'pending',
 
+        $order = Order::create([
+            'user_id' => $user->id,
+            'items' => json_encode($itemsWithDetails),
+            'total_amount' => $totalAmount,
+            'status' => 'pending',
         ]);
+
+        DB::commit();
 
         return response()->json([
-            'message' => 'Order created successfully',
+            'message' => 'Order placed successfully',
             'data' => new OrderResource($order),
         ], 201);
-    }
 
-
-
-
-    /**
-     * Retrieve a specific order by ID
-     */
-    public function show(Order $order)
-    {
-        return new OrderResource($order);
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    /**
-     * Delete an order by ID
-     */
-    public function destroy(Order $order)
-    {
-        $order->delete();
+    } catch (\Exception $e) {
+        DB::rollBack();
         return response()->json([
-            'message' => 'Order deleted successfully',
-        ], 200);
+            'message' => 'Order failed',
+            'error' => $e->getMessage(),
+        ], 500);
+    }
+}
+
+    
+
+public function adminOrders()
+{
+    $user = Auth::user();
+
+    if ($user->is_role !== 0) {
+        return response()->json(['message' => 'Unauthorized. Admins only.'], 403);
+    }
+
+    $orders = Order::all();
+
+    return OrderResource::collection($orders);
+}
+
+public function userOrders()
+{
+    $user = Auth::user();
+
+    $orders = Order::where('user_id', $user->id)->get();
+
+    return OrderResource::collection($orders);
+}
+
+
+
+    public function show($id)
+    {
+        $user = Auth::user();
+        $order = Order::find($id);
+
+        if (!$order) {
+            return response()->json([
+                'message' => 'Order not found'
+            ], 404);
+        }
+
+        
+        if ($order->user_id !== $user->id && !($user->is_admin ?? false)) {
+            return response()->json([
+                'message' => 'Unauthorized access to this order'
+            ], 403);
+        }
+
+        return new OrderResource($order);
     }
 }
