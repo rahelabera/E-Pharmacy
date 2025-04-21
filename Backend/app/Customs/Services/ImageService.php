@@ -7,8 +7,7 @@ use Illuminate\Support\Facades\Storage;
 
 class ImageService
 {
-   
-    public function storeImage(Request $request)
+    public function storeImage(Request $request, $userId)
     {
         $request->validate([
             'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
@@ -17,31 +16,50 @@ class ImageService
         $imagePath = $request->file('image')->store('profile_pictures', 'public');
 
         
-        $existingImage = Image::where('user_id', auth()->id())->first();
+        $existingImage = Image::where('user_id', $userId)->first();
         if ($existingImage) {
-            Storage::delete('public/' . $existingImage->image_path);
+            Storage::disk('public')->delete($existingImage->image_path);
             $existingImage->delete();
         }
 
         return Image::create([
-            'user_id' => auth()->id(),
+            'user_id' => $userId,
             'image_path' => $imagePath,
         ]);
     }
 
-  
     public function getProfilePicture($userId)
     {
         return Image::where('user_id', $userId)->first();
     }
+    public function updateImage(Request $request, $userId)
+{
+    $request->validate([
+        'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+    ]);
+
+    $existingImage = Image::where('user_id', $userId)->first();
+
+    if ($existingImage) {
+        Storage::disk('public')->delete($existingImage->image_path);
+        $existingImage->delete();
+    }
+
+    $imagePath = $request->file('image')->store('profile_pictures', 'public');
+
+    return Image::create([
+        'user_id' => $userId,
+        'image_path' => $imagePath,
+    ]);
+}
 
 
-    public function deleteProfilePicture()
+    public function deleteProfilePicture($userId)
     {
-        $image = Image::where('user_id', auth()->id())->first();
+        $image = Image::where('user_id', $userId)->first();
         if (!$image) return false;
 
-        Storage::delete('public/' . $image->image_path);
+        Storage::disk('public')->delete($image->image_path);
         return $image->delete();
     }
 }

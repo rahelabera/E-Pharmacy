@@ -13,7 +13,7 @@ class Drug extends Model
     protected $table = 'drugs';
   
     protected $casts = [
-        'expires_at' => 'datetime',  // Cast expires_at as a Carbon instance
+        'expires_at' => 'datetime',  
     ];
     protected $fillable = [
         'name',
@@ -35,4 +35,12 @@ class Drug extends Model
            
         ];
     }
+
+    public function orders()
+{
+    return $this->belongsToMany(Order::class, 'order_drug')
+                ->withPivot('quantity', 'price')
+                ->withTimestamps();
+}
+
 }
