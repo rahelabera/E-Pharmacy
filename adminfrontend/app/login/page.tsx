@@ -1,9 +1,7 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
-import { useAuth } from "@/contexts/auth-context"
 import {
   Box,
   Button,
@@ -19,17 +17,81 @@ import {
   Stack,
   Text,
   Spinner,
+  useToast,
 } from "@chakra-ui/react"
+import { useRouter } from "next/navigation"
+import axios from "axios"
 import { Logo } from "@/components/logo"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const { login, isLoading } = useAuth()
+  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
+  const toast = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await login(email, password)
+    setIsLoading(true)
+
+    try {
+      const response = await axios.post(
+        "https://epharmacy-backend-production.up.railway.app/api/auth/login",
+        { email, password },
+        { headers: { "Content-Type": "application/json" } },
+      )
+
+      type LoginResponse = {
+        access_token: string
+        redirect_url: string
+        status: string
+        user?: any
+      }
+
+      const { access_token, status, user } = response.data as LoginResponse
+
+      if (status === "success" && access_token) {
+        // Save token to localStorage
+        localStorage.setItem("token", access_token)
+
+        // Save user data if available
+        if (user) {
+          localStorage.setItem("user", JSON.stringify(user))
+        }
+
+        // Set authorization header for future requests
+        axios.defaults.headers.common["Authorization"] = `Bearer ${access_token}`
+
+        toast({
+          title: "Login successful",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        })
+
+        // Redirect to dashboard regardless of what the API returns
+        router.push("/dashboard")
+      } else {
+        toast({
+          title: "Login failed",
+          description: "Invalid credentials or server error",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        })
+      }
+    } catch (error: any) {
+      console.error("Login error:", error)
+      toast({
+        title: "Login failed",
+        description: error.response?.data?.message || "Login request failed",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -41,7 +103,7 @@ export default function LoginPage() {
               <Logo size="large" />
             </Box>
           </Center>
-          <Heading size="lg" textAlign="center" color="white">
+          <Heading size="lg" color="white">
             Admin Dashboard Login
           </Heading>
           <Text color="blue.100" mt={2}>
@@ -56,6 +118,7 @@ export default function LoginPage() {
             </Text>
           </Text>
         </CardHeader>
+
         <form onSubmit={handleSubmit}>
           <CardBody pt={6} pb={4}>
             <Stack spacing={4}>
@@ -71,10 +134,17 @@ export default function LoginPage() {
               </FormControl>
               <FormControl>
                 <FormLabel>Password</FormLabel>
-                <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <Input
+                  type="password"
+                  placeholder="********"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
               </FormControl>
             </Stack>
           </CardBody>
+
           <CardFooter>
             <Button type="submit" colorScheme="blue" w="full" isDisabled={isLoading}>
               {isLoading ? (

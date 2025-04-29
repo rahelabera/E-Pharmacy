@@ -1,14 +1,12 @@
 import type React from "react"
+import type { Metadata } from "next"
 import { ChakraProvider } from "@/components/chakra-provider"
 import { AuthProvider } from "@/contexts/auth-context"
-import type { Metadata } from "next"
-import { Inter } from "next/font/google"
-
-const inter = Inter({ subsets: ["latin"] })
+import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "E-Market Pharmacy Admin",
-  description: "Admin dashboard for E-Market Pharmacy",
+  title: "Pharmacy Admin Dashboard",
+  description: "Admin dashboard for pharmacy management",
 }
 
 export default function RootLayout({
@@ -18,10 +16,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
-        <AuthProvider>
-          <ChakraProvider>{children}</ChakraProvider>
-        </AuthProvider>
+      <body>
+        <ChakraProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </ChakraProvider>
       </body>
     </html>
   )

@@ -46,9 +46,21 @@ import {
   Badge,
   useToast,
   useDisclosure,
+  HStack,
 } from "@chakra-ui/react"
-import { Search, PlusCircle, Edit, Trash2, AlertTriangle, MoreHorizontal, Eye } from "lucide-react"
+import {
+  Search,
+  PlusCircle,
+  Edit,
+  Trash2,
+  AlertTriangle,
+  MoreHorizontal,
+  Eye,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
+import api from "@/lib/api"
 
 type Drug = {
   id: number
@@ -56,11 +68,33 @@ type Drug = {
   brand: string
   description: string
   category: string
-  price: number
+  price: string // Changed from number to string to match API response
   stock: number
   dosage: string
   expires_at: string
-  created_at: string
+  created_at?: string // Optional since it's not in the API response
+}
+
+type Meta = {
+  current_page: number
+  from: number
+  last_page: number
+  per_page: number
+  to: number
+  total: number
+}
+
+type Links = {
+  first: string
+  last: string
+  prev: string | null
+  next: string | null
+}
+
+type DrugsResponse = {
+  data: Drug[]
+  meta: Meta
+  links: Links
 }
 
 export default function DrugsPage() {
@@ -88,101 +122,36 @@ export default function DrugsPage() {
     expires_at: "",
   })
 
+  const [currentPage, setCurrentPage] = useState(1)
+  const [meta, setMeta] = useState<Meta | null>(null)
+  const [links, setLinks] = useState<Links | null>(null)
+
   useEffect(() => {
-    // In a real app, you would fetch this data from your API
-    // For now, we'll use mock data
+    // Fetch drugs from the API
     const fetchDrugs = async () => {
       setIsLoading(true)
       try {
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        const mockDrugs: Drug[] = [
-          {
-            id: 1,
-            name: "Amoxicillin",
-            brand: "Amoxil",
-            description: "Antibiotic used to treat bacterial infections",
-            category: "Antibiotic",
-            price: 15.99,
-            stock: 120,
-            dosage: "500mg",
-            expires_at: "2025-06-30",
-            created_at: "2023-01-15",
-          },
-          {
-            id: 2,
-            name: "Lisinopril",
-            brand: "Prinivil",
-            description: "Used to treat high blood pressure and heart failure",
-            category: "Blood Pressure",
-            price: 12.5,
-            stock: 85,
-            dosage: "10mg",
-            expires_at: "2024-12-15",
-            created_at: "2023-02-10",
-          },
-          {
-            id: 3,
-            name: "Metformin",
-            brand: "Glucophage",
-            description: "Used to treat type 2 diabetes",
-            category: "Diabetes",
-            price: 8.75,
-            stock: 5,
-            dosage: "500mg",
-            expires_at: "2025-03-20",
-            created_at: "2023-01-25",
-          },
-          {
-            id: 4,
-            name: "Atorvastatin",
-            brand: "Lipitor",
-            description: "Used to lower cholesterol and triglycerides",
-            category: "Cholesterol",
-            price: 22.99,
-            stock: 65,
-            dosage: "20mg",
-            expires_at: "2024-09-10",
-            created_at: "2023-03-05",
-          },
-          {
-            id: 5,
-            name: "Albuterol",
-            brand: "Ventolin",
-            description: "Used to treat asthma and COPD",
-            category: "Respiratory",
-            price: 25.5,
-            stock: 3,
-            dosage: "90mcg",
-            expires_at: "2024-11-30",
-            created_at: "2023-02-18",
-          },
-          {
-            id: 6,
-            name: "Sertraline",
-            brand: "Zoloft",
-            description: "Used to treat depression, anxiety, and PTSD",
-            category: "Mental Health",
-            price: 18.25,
-            stock: 42,
-            dosage: "50mg",
-            expires_at: "2025-01-15",
-            created_at: "2023-03-12",
-          },
-        ]
-
-        setDrugs(mockDrugs)
-        setFilteredDrugs(mockDrugs)
+        const response = await api.get<DrugsResponse>(`/drugs?page=${currentPage}`)
+        setDrugs(response.data.data)
+        setFilteredDrugs(response.data.data)
+        setMeta(response.data.meta)
+        setLinks(response.data.links)
       } catch (error) {
         console.error("Error fetching drugs:", error)
+        toast({
+          title: "Error",
+          description: "Failed to fetch drugs. Please try again later.",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        })
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchDrugs()
-  }, [token])
+  }, [currentPage, token, toast])
 
   useEffect(() => {
     // Filter drugs based on search term and active tab
@@ -233,85 +202,147 @@ export default function DrugsPage() {
     })
   }
 
-  const handleAddDrug = () => {
-    // In a real app, you would call your API to add the drug
-    const newDrug: Drug = {
-      id: drugs.length + 1,
-      name: formData.name,
-      brand: formData.brand,
-      description: formData.description,
-      category: formData.category,
-      price: Number.parseFloat(formData.price),
-      stock: Number.parseInt(formData.stock),
-      dosage: formData.dosage,
-      expires_at: formData.expires_at,
-      created_at: new Date().toISOString().split("T")[0],
+  const handleNextPage = () => {
+    if (meta && currentPage < meta.last_page) {
+      setCurrentPage(currentPage + 1)
     }
-
-    setDrugs([...drugs, newDrug])
-    onAddClose()
-    resetForm()
-
-    toast({
-      title: "Drug added",
-      description: `${newDrug.name} has been added successfully`,
-      status: "success",
-      duration: 3000,
-      isClosable: true,
-    })
   }
 
-  const handleEditDrug = () => {
-    if (!selectedDrug) return
-
-    // In a real app, you would call your API to update the drug
-    const updatedDrugs = drugs.map((drug) =>
-      drug.id === selectedDrug.id
-        ? {
-            ...drug,
-            name: formData.name,
-            brand: formData.brand,
-            description: formData.description,
-            category: formData.category,
-            price: Number.parseFloat(formData.price),
-            stock: Number.parseInt(formData.stock),
-            dosage: formData.dosage,
-            expires_at: formData.expires_at,
-          }
-        : drug,
-    )
-
-    setDrugs(updatedDrugs)
-    onEditClose()
-    setSelectedDrug(null)
-    resetForm()
-
-    toast({
-      title: "Drug updated",
-      description: `${formData.name} has been updated successfully`,
-      status: "success",
-      duration: 3000,
-      isClosable: true,
-    })
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1)
+    }
   }
 
-  const handleDeleteDrug = () => {
+  const handleAddDrug = async () => {
+    try {
+      const drugData = {
+        name: formData.name,
+        brand: formData.brand,
+        description: formData.description,
+        category: formData.category,
+        price: formData.price,
+        stock: Number.parseInt(formData.stock),
+        dosage: formData.dosage,
+        expires_at: formData.expires_at,
+      }
+
+      const response = await api.post("/drugs", drugData)
+
+      // Add the new drug to the list
+      setDrugs([...drugs, response.data.data])
+      onAddClose()
+      resetForm()
+
+      toast({
+        title: "Drug added",
+        description: `${drugData.name} has been added successfully`,
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      })
+
+      // Refresh drugs list to ensure we have the latest data
+      setCurrentPage(1)
+    } catch (error) {
+      console.error("Error adding drug:", error)
+      toast({
+        title: "Error",
+        description: "Failed to add drug. Please try again.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      })
+    }
+  }
+
+  const handleEditDrug = async () => {
     if (!selectedDrug) return
 
-    // In a real app, you would call your API to delete the drug
-    const updatedDrugs = drugs.filter((drug) => drug.id !== selectedDrug.id)
+    try {
+      const drugData = {
+        name: formData.name,
+        brand: formData.brand,
+        description: formData.description,
+        category: formData.category,
+        price: formData.price,
+        stock: Number.parseInt(formData.stock),
+        dosage: formData.dosage,
+        expires_at: formData.expires_at,
+      }
 
-    setDrugs(updatedDrugs)
-    onDeleteClose()
-    setSelectedDrug(null)
+      await api.put(`/drugs/${selectedDrug.id}`, drugData)
 
-    toast({
-      title: "Drug deleted",
-      description: `${selectedDrug.name} has been deleted successfully`,
-      status: "error",
-      duration: 3000,
-      isClosable: true,
-    })
+      // Update the drug in the list
+      const updatedDrugs = drugs.map((drug) =>
+        drug.id === selectedDrug.id
+          ? {
+              ...drug,
+              ...drugData,
+            }
+          : drug,
+      )
+
+      setDrugs(updatedDrugs)
+      setFilteredDrugs(updatedDrugs)
+      onEditClose()
+      setSelectedDrug(null)
+      resetForm()
+
+      toast({
+        title: "Drug updated",
+        description: `${formData.name} has been updated successfully`,
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      })
+    } catch (error) {
+      console.error("Error updating drug:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update drug. Please try again.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      })
+    }
+  }
+
+  const handleDeleteDrug = async () => {
+    if (!selectedDrug) return
+
+    try {
+      await api.delete(`/drugs/${selectedDrug.id}`)
+
+      // Remove the drug from the list
+      const updatedDrugs = drugs.filter((drug) => drug.id !== selectedDrug.id)
+      setDrugs(updatedDrugs)
+      setFilteredDrugs(updatedDrugs)
+      onDeleteClose()
+      setSelectedDrug(null)
+
+      toast({
+        title: "Drug deleted",
+        description: `${selectedDrug.name} has been deleted successfully`,
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      })
+
+      // If we deleted the last item on the current page, go to the previous page
+      if (updatedDrugs.length === 0 && currentPage > 1) {
+        setCurrentPage(currentPage - 1)
+      }
+    } catch (error) {
+      console.error("Error deleting drug:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete drug. Please try again.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      })
+    }
   }
 
   const openEditModal = (drug: Drug) => {
@@ -425,7 +456,7 @@ export default function DrugsPage() {
                         <Td>{drug.brand}</Td>
                         <Td>{drug.category}</Td>
                         <Td>{drug.dosage}</Td>
-                        <Td isNumeric>${drug.price.toFixed(2)}</Td>
+                        <Td isNumeric>${Number.parseFloat(drug.price).toFixed(2)}</Td>
                         <Td isNumeric>
                           <Badge colorScheme={drug.stock <= 5 ? "red" : drug.stock <= 20 ? "yellow" : "green"}>
                             {drug.stock}
@@ -463,6 +494,34 @@ export default function DrugsPage() {
                 </Tbody>
               </Table>
             </Box>
+            {meta && (
+              <Flex justify="space-between" align="center" mt={4}>
+                <Text fontSize="sm">
+                  Showing {meta.from} to {meta.to} of {meta.total} drugs
+                </Text>
+                <HStack>
+                  <Button
+                    size="sm"
+                    leftIcon={<ChevronLeft size={16} />}
+                    onClick={handlePrevPage}
+                    isDisabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <Text fontSize="sm">
+                    Page {meta.current_page} of {meta.last_page}
+                  </Text>
+                  <Button
+                    size="sm"
+                    rightIcon={<ChevronRight size={16} />}
+                    onClick={handleNextPage}
+                    isDisabled={meta.current_page === meta.last_page}
+                  >
+                    Next
+                  </Button>
+                </HStack>
+              </Flex>
+            )}
           </CardBody>
         </Card>
       </Stack>

@@ -5,6 +5,7 @@ import type React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@chakra-ui/react"
+import axios from "axios"
 
 type User = {
   id: number
@@ -32,59 +33,72 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Check if user is logged in
-    const storedUser = localStorage.getItem("user")
-    const storedToken = localStorage.getItem("token")
+    // This code only runs on the client side
+    if (typeof window !== "undefined") {
+      const storedUser = localStorage.getItem("user")
+      const storedToken = localStorage.getItem("token")
 
-    if (storedUser && storedToken) {
-      setUser(JSON.parse(storedUser))
-      setToken(storedToken)
+      if (storedUser && storedToken) {
+        setUser(JSON.parse(storedUser))
+        setToken(storedToken)
+
+        // Set default authorization header for all axios requests
+        axios.defaults.headers.common["Authorization"] = `Bearer ${storedToken}`
+      }
+      setIsLoading(false)
     }
-
-    setIsLoading(false)
   }, [])
 
   const login = async (email: string, password: string) => {
     setIsLoading(true)
     try {
-      // Mock credentials for demo purposes
-      const validCredentials = [
-        { email: "admin@example.com", password: "admin123", name: "Admin User", id: 1, is_role: 0 },
-        { email: "pharmacist@example.com", password: "pharma123", name: "John Pharmacist", id: 2, is_role: 0 },
-      ]
-
-      // Find matching user
-      const matchedUser = validCredentials.find((user) => user.email === email && user.password === password)
-
-      if (!matchedUser) {
-        throw new Error("Invalid email or password")
+      interface LoginResponse {
+        access_token: string
+        redirect_url: string
+        status: string
+        user?: any
       }
 
-      // Create mock user and token
-      const userData = {
-        id: matchedUser.id,
-        name: matchedUser.name,
-        email: matchedUser.email,
-        is_role: matchedUser.is_role,
+      const response = await axios.post<LoginResponse>(
+        "https://epharmacy-backend-production.up.railway.app/api/auth/login",
+        { email, password },
+        { headers: { "Content-Type": "application/json" } },
+      )
+
+      const { access_token, redirect_url, status, user: userData } = response.data
+
+      if (status === "success" && access_token) {
+        // Create user object from response
+        const user = userData || {
+          id: 1,
+          name: "Admin User",
+          email: email,
+          is_role: 0,
+        }
+
+        setUser(user)
+        setToken(access_token)
+
+        // Store in localStorage
+        localStorage.setItem("user", JSON.stringify(user))
+        localStorage.setItem("token", access_token)
+
+        // Set default authorization header
+        axios.defaults.headers.common["Authorization"] = `Bearer ${access_token}`
+
+        toast({
+          title: "Login successful",
+          description: `Welcome back, ${user.name}!`,
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        })
+
+        // Navigate to the redirect URL from the API
+        window.location.href = `/${redirect_url}`
+      } else {
+        throw new Error("Invalid credentials or server error")
       }
-
-      const mockToken = "mock-jwt-token-" + Math.random().toString(36).substring(2)
-
-      setUser(userData)
-      setToken(mockToken)
-
-      // Store in localStorage
-      localStorage.setItem("user", JSON.stringify(userData))
-      localStorage.setItem("token", mockToken)
-
-      toast({
-        title: "Login successful",
-        description: `Welcome back, ${userData.name}!`,
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-      })
-
-      router.push("/dashboard")
     } catch (error) {
       toast({
         title: "Login failed",
@@ -93,17 +107,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         duration: 3000,
         isClosable: true,
       })
+      throw error
     } finally {
       setIsLoading(false)
     }
   }
 
   const logout = () => {
+    // Remove auth header
+    delete axios.defaults.headers.common["Authorization"]
+
     setUser(null)
     setToken(null)
     localStorage.removeItem("user")
     localStorage.removeItem("token")
-    router.push("/login")
+
+    // Redirect to login page
+    window.location.href = "/login"
+
     toast({
       title: "Logged out",
       description: "You have been successfully logged out",
