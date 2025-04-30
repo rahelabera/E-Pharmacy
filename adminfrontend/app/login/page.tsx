@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Box,
   Button,
@@ -30,6 +30,14 @@ export default function LoginPage() {
   const router = useRouter()
   const toast = useToast()
 
+  // Check if user is already logged in
+  useEffect(() => {
+    const token = localStorage.getItem("token")
+    if (token) {
+      router.push("/dashboard")
+    }
+  }, [router])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -54,6 +62,9 @@ export default function LoginPage() {
         // Save token to localStorage
         localStorage.setItem("token", access_token)
 
+        // Also set a cookie for the middleware
+        document.cookie = `token=${access_token}; path=/; max-age=${60 * 60 * 24 * 7}` // 7 days
+
         // Save user data if available
         if (user) {
           localStorage.setItem("user", JSON.stringify(user))
@@ -69,8 +80,19 @@ export default function LoginPage() {
           isClosable: true,
         })
 
-        // Redirect to dashboard regardless of what the API returns
-        router.push("/dashboard")
+        // Try both navigation methods for better reliability
+        setTimeout(() => {
+          try {
+            router.push("/dashboard")
+            // As a fallback, also use direct navigation
+            setTimeout(() => {
+              window.location.href = "/dashboard"
+            }, 500)
+          } catch (error) {
+            console.error("Navigation error:", error)
+            window.location.href = "/dashboard"
+          }
+        }, 1000) // Small delay to ensure toast is visible
       } else {
         toast({
           title: "Login failed",
@@ -100,7 +122,7 @@ export default function LoginPage() {
         <CardHeader bg="blue.500" color="white" borderTopRadius="lg" textAlign="center" pb={6}>
           <Center mb={4}>
             <Box bg="white" p={2} borderRadius="lg">
-              <Logo size="large" />
+              <Logo size="large" showText={false} />
             </Box>
           </Center>
           <Heading size="lg" color="white">

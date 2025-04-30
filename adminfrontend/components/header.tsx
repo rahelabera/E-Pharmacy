@@ -52,7 +52,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
       />
 
       <Text fontSize="lg" fontWeight="bold" display={{ base: "none", md: "flex" }}>
-        ePharmacy Admin
+        E-Market Pharmacy Admin
       </Text>
 
       <Box>

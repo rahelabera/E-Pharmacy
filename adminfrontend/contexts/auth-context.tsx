@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         { headers: { "Content-Type": "application/json" } },
       )
 
-      const { access_token, redirect_url, status, user: userData } = response.data
+      const { access_token, status, user: userData } = response.data
 
       if (status === "success" && access_token) {
         // Create user object from response
@@ -83,6 +83,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem("user", JSON.stringify(user))
         localStorage.setItem("token", access_token)
 
+        // Also set a cookie for the middleware
+        document.cookie = `token=${access_token}; path=/; max-age=${60 * 60 * 24 * 7}` // 7 days
+
         // Set default authorization header
         axios.defaults.headers.common["Authorization"] = `Bearer ${access_token}`
 
@@ -94,8 +97,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isClosable: true,
         })
 
-        // Navigate to the redirect URL from the API
-        window.location.href = `/${redirect_url}`
+        // Navigate to dashboard
+        try {
+          router.push("/dashboard")
+          // As a fallback, also use direct navigation
+          setTimeout(() => {
+            window.location.href = "/dashboard"
+          }, 500)
+        } catch (error) {
+          console.error("Navigation error:", error)
+          window.location.href = "/dashboard"
+        }
       } else {
         throw new Error("Invalid credentials or server error")
       }
@@ -121,6 +133,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(null)
     localStorage.removeItem("user")
     localStorage.removeItem("token")
+
+    // Clear the cookie
+    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
 
     // Redirect to login page
     window.location.href = "/login"

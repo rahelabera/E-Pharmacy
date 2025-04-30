@@ -2,10 +2,19 @@
 
 import type React from "react"
 
-import { Box, Flex, Text, CloseButton, VStack, Icon, useColorModeValue } from "@chakra-ui/react"
+import { Box, Flex, CloseButton, VStack, Icon, useColorModeValue } from "@chakra-ui/react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { FiHome, FiUsers, FiPackage, FiShoppingCart, FiFileText, FiMessageSquare, FiMap } from "react-icons/fi"
+import {
+  FiHome,
+  FiUsers,
+  FiPackage,
+  FiShoppingCart,
+  FiFileText,
+  FiMessageSquare,
+  FiMap,
+  FiUserCheck,
+} from "react-icons/fi"
 import { Logo } from "./logo"
 
 interface SidebarProps {
@@ -52,6 +61,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { name: "Users", icon: FiUsers, path: "/dashboard/users" },
     { name: "Drugs", icon: FiPackage, path: "/dashboard/drugs" },
     { name: "Orders", icon: FiShoppingCart, path: "/dashboard/orders" },
+    { name: "Pharmacists", icon: FiUserCheck, path: "/dashboard/pharmacists" },
     { name: "Prescriptions", icon: FiFileText, path: "/dashboard/prescriptions" },
     { name: "Messages", icon: FiMessageSquare, path: "/dashboard/messages" },
     { name: "Locations", icon: FiMap, path: "/dashboard/locations" },
@@ -70,12 +80,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       zIndex={20}
     >
       <Flex h="20" alignItems="center" mx="8" justifyContent="space-between">
-        <Flex alignItems="center">
-          <Logo size="small" />
-          <Text fontSize="lg" fontWeight="bold" ml="2">
-            ePharmacy
-          </Text>
-        </Flex>
+        <Logo size="small" showText={true} />
         <CloseButton display={{ base: "flex", md: "none" }} onClick={onClose} />
       </Flex>
       <VStack spacing="1" align="stretch">

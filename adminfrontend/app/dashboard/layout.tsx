@@ -19,7 +19,11 @@ export default function DashboardLayout({
     <AuthCheck>
       <Flex h="100vh">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-        <Box flex="1" overflow="auto">
+        <Box
+          flex="1"
+          overflow="auto"
+          ml={{ base: 0, md: "60" }} // Add left margin on medium and larger screens
+        >
           <Header onOpenSidebar={() => setIsSidebarOpen(true)} />
           <Box as="main" p={4}>
             {children}

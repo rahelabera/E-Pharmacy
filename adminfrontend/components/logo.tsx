@@ -1,44 +1,54 @@
-import { PillIcon } from "lucide-react"
-import Link from "next/link"
+import { Box, Flex, Text, Icon } from "@chakra-ui/react"
+import { FiPlusCircle } from "react-icons/fi"
 
 interface LogoProps {
   size?: "small" | "medium" | "large"
-  variant?: "default" | "white"
-  asLink?: boolean
+  showText?: boolean
 }
 
-export function Logo({ size = "medium", variant = "default", asLink = true }: LogoProps) {
-  const sizeClasses = {
-    small: "h-5 w-5",
-    medium: "h-6 w-6",
-    large: "h-8 w-8",
+export function Logo({ size = "medium", showText = true }: LogoProps) {
+  const sizes = {
+    small: { icon: "24px", text: "md" },
+    medium: { icon: "32px", text: "lg" },
+    large: { icon: "48px", text: "xl" },
   }
 
-  const textClasses = {
-    small: "text-lg",
-    medium: "text-xl",
-    large: "text-2xl",
-  }
-
-  const iconBgClass = variant === "white" ? "bg-white text-blue-500" : "bg-blue-500 text-white"
-  const textColorClass = variant === "white" ? "text-white" : "text-blue-500"
-
-  const content = (
-    <>
-      <div className={`${iconBgClass} p-1 rounded-md`}>
-        <PillIcon className={sizeClasses[size]} />
-      </div>
-      <span className={`font-bold ${textColorClass} ${textClasses[size]}`}>E-Market Pharmacy</span>
-    </>
+  return (
+    <Flex align="center">
+      <Box
+        width={sizes[size].icon}
+        height={sizes[size].icon}
+        bg="blue.500"
+        borderRadius="md"
+        display="flex"
+        alignItems="center"
+        justifyContent="center"
+        boxShadow="0 4px 6px rgba(0, 0, 0, 0.1)"
+        position="relative"
+        overflow="hidden"
+      >
+        <Box
+          position="absolute"
+          top="0"
+          left="0"
+          width="100%"
+          height="100%"
+          bg="blue.400"
+          transform="translateX(-50%)"
+          borderRadius="md"
+        />
+        <Icon as={FiPlusCircle} color="white" fontSize={sizes[size].icon} position="relative" zIndex="1" />
+      </Box>
+      {showText && (
+        <Flex direction="column" ml={2}>
+          <Text fontWeight="bold" fontSize={sizes[size].text} lineHeight="1" color="blue.600">
+            ePharmacy
+          </Text>
+          <Text fontSize="xs" color="gray.500" lineHeight="1">
+            Admin Portal
+          </Text>
+        </Flex>
+      )}
+    </Flex>
   )
-
-  if (asLink) {
-    return (
-      <Link href="/dashboard" className="flex items-center gap-2">
-        {content}
-      </Link>
-    )
-  }
-
-  return <div className="flex items-center gap-2">{content}</div>
 }

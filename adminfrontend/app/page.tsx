@@ -2,13 +2,19 @@
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { Center, Spinner } from "@chakra-ui/react"
 
 export default function Home() {
   const router = useRouter()
 
   useEffect(() => {
-    router.push("/dashboard")
+    // Always redirect to login page first
+    router.push("/login")
   }, [router])
 
-  return null
+  return (
+    <Center h="100vh">
+      <Spinner size="xl" color="blue.500" />
+    </Center>
+  )
 }

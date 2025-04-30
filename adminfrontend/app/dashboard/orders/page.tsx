@@ -39,28 +39,53 @@ import {
   Badge,
   useToast,
   useDisclosure,
-  Grid, // Added Grid import
+  Grid,
+  HStack,
 } from "@chakra-ui/react"
-import { Search, Eye, MoreHorizontal, CheckCircle, Truck, XCircle } from "lucide-react"
+import { Search, Eye, MoreHorizontal, CheckCircle, Truck, XCircle, ChevronLeft, ChevronRight } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
+import api from "@/lib/api"
+
+type OrderItem = {
+  name: string
+  price: string
+  drug_id: number
+  quantity: number
+  subtotal: number
+}
 
 type Order = {
   id: number
-  customer: {
+  user_id: number
+  items: OrderItem[]
+  total_amount: string
+  status: "pending" | "processing" | "shipped" | "delivered" | "cancelled"
+  created_at: string
+  updated_at: string
+  // Additional fields for UI display
+  customer?: {
     id: number
     name: string
     email: string
   }
-  items: {
-    id: number
-    drug_name: string
-    quantity: number
-    price: number
-  }[]
-  total: number
-  status: "pending" | "processing" | "shipped" | "delivered" | "cancelled"
-  created_at: string
-  updated_at: string
+}
+
+type OrdersResponse = {
+  data: Order[]
+  meta?: {
+    current_page: number
+    from: number
+    last_page: number
+    per_page: number
+    to: number
+    total: number
+  }
+  links?: {
+    first: string
+    last: string
+    prev: string | null
+    next: string | null
+  }
 }
 
 export default function OrdersPage() {
@@ -73,142 +98,48 @@ export default function OrdersPage() {
   const [activeTab, setActiveTab] = useState("all")
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const { isOpen: isViewOpen, onOpen: onViewOpen, onClose: onViewClose } = useDisclosure()
+  const [currentPage, setCurrentPage] = useState(1)
+  const [meta, setMeta] = useState<OrdersResponse["meta"] | null>(null)
 
   useEffect(() => {
-    // In a real app, you would fetch this data from your API
-    // For now, we'll use mock data
+    // Fetch orders from the API
     const fetchOrders = async () => {
       setIsLoading(true)
       try {
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+        const response = await api.get<OrdersResponse>(`/admin/orders?page=${currentPage}`)
 
-        const mockOrders: Order[] = [
-          {
-            id: 1001,
-            customer: {
-              id: 5,
-              name: "John Doe",
-              email: "john@example.com",
-            },
-            items: [
-              {
-                id: 1,
-                drug_name: "Amoxicillin",
-                quantity: 2,
-                price: 15.99,
-              },
-              {
-                id: 3,
-                drug_name: "Metformin",
-                quantity: 1,
-                price: 8.75,
-              },
-            ],
-            total: 40.73,
-            status: "delivered",
-            created_at: "2023-05-15",
-            updated_at: "2023-05-17",
+        // Process orders to add customer info (in a real app, this would come from the API)
+        const processedOrders = response.data.data.map((order) => ({
+          ...order,
+          customer: {
+            id: order.user_id,
+            name: `User ${order.user_id}`, // Placeholder - in a real app, you'd get this from the API
+            email: `user${order.user_id}@example.com`, // Placeholder
           },
-          {
-            id: 1002,
-            customer: {
-              id: 6,
-              name: "Jane Smith",
-              email: "jane@example.com",
-            },
-            items: [
-              {
-                id: 2,
-                drug_name: "Lisinopril",
-                quantity: 1,
-                price: 12.5,
-              },
-            ],
-            total: 12.5,
-            status: "processing",
-            created_at: "2023-05-16",
-            updated_at: "2023-05-16",
-          },
-          {
-            id: 1003,
-            customer: {
-              id: 7,
-              name: "Robert Johnson",
-              email: "robert@example.com",
-            },
-            items: [
-              {
-                id: 4,
-                drug_name: "Atorvastatin",
-                quantity: 1,
-                price: 22.99,
-              },
-              {
-                id: 6,
-                drug_name: "Sertraline",
-                quantity: 1,
-                price: 18.25,
-              },
-            ],
-            total: 41.24,
-            status: "shipped",
-            created_at: "2023-05-14",
-            updated_at: "2023-05-15",
-          },
-          {
-            id: 1004,
-            customer: {
-              id: 8,
-              name: "Emily Davis",
-              email: "emily@example.com",
-            },
-            items: [
-              {
-                id: 5,
-                drug_name: "Albuterol",
-                quantity: 1,
-                price: 25.5,
-              },
-            ],
-            total: 25.5,
-            status: "pending",
-            created_at: "2023-05-17",
-            updated_at: "2023-05-17",
-          },
-          {
-            id: 1005,
-            customer: {
-              id: 9,
-              name: "Michael Brown",
-              email: "michael@example.com",
-            },
-            items: [
-              {
-                id: 1,
-                drug_name: "Amoxicillin",
-                quantity: 1,
-                price: 15.99,
-              },
-            ],
-            total: 15.99,
-            status: "cancelled",
-            created_at: "2023-05-13",
-            updated_at: "2023-05-14",
-          },
-        ]
+        }))
 
-        setOrders(mockOrders)
-        setFilteredOrders(mockOrders)
+        setOrders(processedOrders)
+        setFilteredOrders(processedOrders)
+
+        if (response.data.meta) {
+          setMeta(response.data.meta)
+        }
       } catch (error) {
         console.error("Error fetching orders:", error)
+        toast({
+          title: "Error",
+          description: "Failed to fetch orders. Please try again later.",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        })
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchOrders()
-  }, [token])
+  }, [currentPage, token, toast])
 
   useEffect(() => {
     // Filter orders based on search term and active tab
@@ -219,9 +150,9 @@ export default function OrdersPage() {
       filtered = filtered.filter(
         (order) =>
           order.id.toString().includes(searchTerm) ||
-          order.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          order.customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          order.items.some((item) => item.drug_name.toLowerCase().includes(searchTerm.toLowerCase())),
+          (order.customer?.name && order.customer.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (order.customer?.email && order.customer.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          order.items.some((item) => item.name.toLowerCase().includes(searchTerm.toLowerCase())),
       )
     }
 
@@ -233,27 +164,42 @@ export default function OrdersPage() {
     setFilteredOrders(filtered)
   }, [searchTerm, activeTab, orders])
 
-  const handleUpdateStatus = (orderId: number, newStatus: Order["status"]) => {
-    // In a real app, you would call your API to update the order status
-    const updatedOrders = orders.map((order) =>
-      order.id === orderId
-        ? {
-            ...order,
-            status: newStatus,
-            updated_at: new Date().toISOString().split("T")[0],
-          }
-        : order,
-    )
+  const handleUpdateStatus = async (orderId: number, newStatus: Order["status"]) => {
+    try {
+      // In a real app, you would call your API to update the order status
+      await api.put(`/admin/orders/${orderId}/status`, { status: newStatus })
 
-    setOrders(updatedOrders)
+      // Update the order in the list
+      const updatedOrders = orders.map((order) =>
+        order.id === orderId
+          ? {
+              ...order,
+              status: newStatus,
+              updated_at: new Date().toISOString(),
+            }
+          : order,
+      )
 
-    toast({
-      title: "Order status updated",
-      description: `Order #${orderId} has been marked as ${newStatus}`,
-      status: "success",
-      duration: 3000,
-      isClosable: true,
-    })
+      setOrders(updatedOrders)
+      setFilteredOrders(updatedOrders)
+
+      toast({
+        title: "Order status updated",
+        description: `Order #${orderId} has been marked as ${newStatus}`,
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      })
+    } catch (error) {
+      console.error("Error updating order status:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update order status. Please try again.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      })
+    }
   }
 
   const viewOrderDetails = (order: Order) => {
@@ -276,6 +222,27 @@ export default function OrdersPage() {
       default:
         return "gray"
     }
+  }
+
+  const handleNextPage = () => {
+    if (meta && currentPage < meta.last_page) {
+      setCurrentPage(currentPage + 1)
+    }
+  }
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1)
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    })
   }
 
   if (isLoading) {
@@ -358,14 +325,14 @@ export default function OrdersPage() {
                         <Td>#{order.id}</Td>
                         <Td>
                           <Box>
-                            <Text fontWeight="medium">{order.customer.name}</Text>
+                            <Text fontWeight="medium">{order.customer?.name || `User ${order.user_id}`}</Text>
                             <Text fontSize="sm" color="gray.500">
-                              {order.customer.email}
+                              {order.customer?.email || `user${order.user_id}@example.com`}
                             </Text>
                           </Box>
                         </Td>
-                        <Td>{order.created_at}</Td>
-                        <Td isNumeric>${order.total.toFixed(2)}</Td>
+                        <Td>{formatDate(order.created_at)}</Td>
+                        <Td isNumeric>${Number(order.total_amount).toFixed(2)}</Td>
                         <Td>
                           <Badge colorScheme={getStatusBadgeColor(order.status)}>
                             {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
@@ -429,6 +396,34 @@ export default function OrdersPage() {
                 </Tbody>
               </Table>
             </Box>
+            {meta && (
+              <Flex justify="space-between" align="center" mt={4}>
+                <Text fontSize="sm">
+                  Showing {meta.from || 0} to {meta.to || 0} of {meta.total || 0} orders
+                </Text>
+                <HStack>
+                  <Button
+                    size="sm"
+                    leftIcon={<ChevronLeft size={16} />}
+                    onClick={handlePrevPage}
+                    isDisabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <Text fontSize="sm">
+                    Page {meta.current_page || 1} of {meta.last_page || 1}
+                  </Text>
+                  <Button
+                    size="sm"
+                    rightIcon={<ChevronRight size={16} />}
+                    onClick={handleNextPage}
+                    isDisabled={!meta.last_page || meta.current_page === meta.last_page}
+                  >
+                    Next
+                  </Button>
+                </HStack>
+              </Flex>
+            )}
           </CardBody>
         </Card>
       </Stack>
@@ -447,16 +442,16 @@ export default function OrdersPage() {
                     <Text fontSize="sm" fontWeight="medium" mb={1}>
                       Customer
                     </Text>
-                    <Text fontSize="sm">{selectedOrder.customer.name}</Text>
+                    <Text fontSize="sm">{selectedOrder.customer?.name || `User ${selectedOrder.user_id}`}</Text>
                     <Text fontSize="sm" color="gray.500">
-                      {selectedOrder.customer.email}
+                      {selectedOrder.customer?.email || `user${selectedOrder.user_id}@example.com`}
                     </Text>
                   </Box>
                   <Box>
                     <Text fontSize="sm" fontWeight="medium" mb={1}>
                       Order Info
                     </Text>
-                    <Text fontSize="sm">Date: {selectedOrder.created_at}</Text>
+                    <Text fontSize="sm">Date: {formatDate(selectedOrder.created_at)}</Text>
                     <Flex align="center" gap={1}>
                       <Text fontSize="sm">Status:</Text>
                       <Badge colorScheme={getStatusBadgeColor(selectedOrder.status)}>
@@ -481,12 +476,12 @@ export default function OrdersPage() {
                         </Tr>
                       </Thead>
                       <Tbody>
-                        {selectedOrder.items.map((item) => (
-                          <Tr key={item.id}>
-                            <Td>{item.drug_name}</Td>
+                        {selectedOrder.items.map((item, index) => (
+                          <Tr key={index}>
+                            <Td>{item.name}</Td>
                             <Td textAlign="center">{item.quantity}</Td>
-                            <Td isNumeric>${item.price.toFixed(2)}</Td>
-                            <Td isNumeric>${(item.price * item.quantity).toFixed(2)}</Td>
+                            <Td isNumeric>${Number(item.price).toFixed(2)}</Td>
+                            <Td isNumeric>${item.subtotal.toFixed(2)}</Td>
                           </Tr>
                         ))}
                         <Tr>
@@ -494,7 +489,7 @@ export default function OrdersPage() {
                             Total:
                           </Td>
                           <Td isNumeric fontWeight="medium">
-                            ${selectedOrder.total.toFixed(2)}
+                            ${Number(selectedOrder.total_amount).toFixed(2)}
                           </Td>
                         </Tr>
                       </Tbody>
