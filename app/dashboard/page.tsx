@@ -1,234 +1,751 @@
 "use client"
 
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import {
   Box,
-  SimpleGrid,
-  StatLabel,
-  StatNumber,
-  StatHelpText,
-  Card,
-  Stat,
-  CardBody,
+  Grid,
   Heading,
+  SimpleGrid,
   Text,
   Flex,
   Icon,
+  Card,
+  CardBody,
+  CardHeader,
+  Skeleton,
+  Progress,
+  Badge,
+  Image,
+  Divider,
+  Avatar,
+  HStack,
+  VStack,
+  Button,
   Table,
   Thead,
   Tbody,
   Tr,
   Th,
   Td,
-  Badge,
-  Tabs,
-  TabList,
-  Tab,
-  TabPanels,
-  TabPanel,
+  useToast,
 } from "@chakra-ui/react"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts"
-import { Users, ShoppingCart, DollarSign, TrendingUp } from "lucide-react"
+import {
+  FiShoppingBag,
+  FiDollarSign,
+  FiFileText,
+  FiMapPin,
+  FiUsers,
+  FiUserCheck,
+  FiUserX,
+  FiEye,
+  FiCheckCircle,
+  FiXCircle,
+} from "react-icons/fi"
+import { useAuth } from "@/contexts/auth-context"
+import api from "@/lib/api"
 
-// Sample data for charts
-const salesData = [
-  { name: "Jan", total: 1200 },
-  { name: "Feb", total: 2100 },
-  { name: "Mar", total: 1800 },
-  { name: "Apr", total: 2400 },
-  { name: "May", total: 2700 },
-  { name: "Jun", total: 3000 },
-]
+// Define types for our data
+type DashboardStats = {
+  totalUsers: number
+  totalOrders: number
+  pendingPrescriptions: number
+  totalRevenue: number
+  drugsCount: number
+  pharmacistsCount: number
+  patientsCount: number
+  transactionsCount: number
+  pendingPharmacists: number
+}
 
-const userActivityData = [
-  { name: "Mon", active: 120 },
-  { name: "Tue", active: 145 },
-  { name: "Wed", active: 135 },
-  { name: "Thu", active: 160 },
-  { name: "Fri", active: 180 },
-  { name: "Sat", active: 90 },
-  { name: "Sun", active: 75 },
-]
+type RecentOrder = {
+  id: number
+  user_name: string
+  total_amount: string | number
+  status: string
+  created_at: string
+}
 
-const recentOrders = [
-  {
-    id: "ORD-001",
-    customer: "John Doe",
-    status: "Completed",
-    date: "2023-06-01",
-    total: "$125.99",
-  },
-  {
-    id: "ORD-002",
-    customer: "Jane Smith",
-    status: "Processing",
-    date: "2023-06-02",
-    total: "$89.50",
-  },
-  {
-    id: "ORD-003",
-    customer: "Robert Johnson",
-    status: "Pending",
-    date: "2023-06-03",
-    total: "$245.75",
-  },
-  {
-    id: "ORD-004",
-    customer: "Emily Davis",
-    status: "Completed",
-    date: "2023-06-03",
-    total: "$32.20",
-  },
-  {
-    id: "ORD-005",
-    customer: "Michael Wilson",
-    status: "Cancelled",
-    date: "2023-06-04",
-    total: "$112.30",
-  },
-]
+type LowStockDrug = {
+  id: number
+  name: string
+  stock: number
+  category: string
+}
 
-
+type PharmacistData = {
+  id: number
+  name: string
+  email: string
+  pharmacy_name: string | null
+  status: string
+  created_at: string
+  license_image: string | null
+}
 
 export default function DashboardPage() {
+  const { user, token } = useAuth()
+  const router = useRouter()
+  const toast = useToast()
+  const [isLoading, setIsLoading] = useState(true)
+  const [stats, setStats] = useState<DashboardStats>({
+    totalUsers: 0,
+    totalOrders: 0,
+    pendingPrescriptions: 0,
+    totalRevenue: 0,
+    drugsCount: 0,
+    pharmacistsCount: 0,
+    patientsCount: 0,
+    transactionsCount: 0,
+    pendingPharmacists: 0,
+  })
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([])
+  const [lowStockDrugs, setLowStockDrugs] = useState<LowStockDrug[]>([])
+  const [pendingPharmacists, setPendingPharmacists] = useState<PharmacistData[]>([])
+  const [currentDate] = useState(new Date())
+  const [isProcessing, setIsProcessing] = useState<Record<number, boolean>>({})
+
+  // Helper function to handle null values
+  const formatValue = (value: string | null | undefined): string => {
+    return value ? value : "-"
+  }
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      setIsLoading(true)
+      try {
+        // Use Promise.allSettled to fetch data from multiple endpoints concurrently
+        // This ensures that if one request fails, the others will still complete
+        const [drugsRes, pharmacistsRes, patientsRes, ordersRes, prescriptionsRes] = await Promise.allSettled([
+          api.get("/drugs"),
+          api.get("/admin/pharmacists/all"),
+          api.get("/patients"),
+          api.get("/admin/orders"),
+          api.get("/admin/prescriptions"), // Assuming there's a prescriptions endpoint
+        ])
+
+        console.log("API responses:", {
+          drugs: drugsRes.status === "fulfilled" ? drugsRes.value?.data : "Failed",
+          pharmacists: pharmacistsRes.status === "fulfilled" ? pharmacistsRes.value?.data : "Failed",
+          patients: patientsRes.status === "fulfilled" ? patientsRes.value?.data : "Failed",
+          orders: ordersRes.status === "fulfilled" ? ordersRes.value?.data : "Failed",
+          prescriptions: prescriptionsRes.status === "fulfilled" ? prescriptionsRes.value?.data : "Failed",
+        })
+
+        // Extract data from responses based on the actual API response structure
+        // Handle both fulfilled and rejected promises
+
+        // Process drugs data
+        let drugs = []
+        if (drugsRes.status === "fulfilled") {
+          const drugsData = drugsRes.value.data
+          drugs = drugsData.data || drugsData || []
+        }
+
+        // Process pharmacists data
+        let pharmacists = []
+        if (pharmacistsRes.status === "fulfilled") {
+          const pharmacistsData = pharmacistsRes.value.data
+          pharmacists = pharmacistsData.data?.data || pharmacistsData.data || pharmacistsData.pharmacists || []
+        }
+
+        // Process patients data
+        let patients = []
+        if (patientsRes.status === "fulfilled") {
+          const patientsData = patientsRes.value.data
+          patients = patientsData.patients || patientsData.data || []
+        }
+
+        // Process orders data
+        let orders = []
+        if (ordersRes.status === "fulfilled") {
+          const ordersData = ordersRes.value.data
+          orders = ordersData.data || ordersData || []
+        }
+
+        // Process prescriptions data
+        let prescriptions = []
+        if (prescriptionsRes.status === "fulfilled") {
+          const prescriptionsData = prescriptionsRes.value.data
+          prescriptions = prescriptionsData.data || prescriptionsData || []
+        }
+
+        // Calculate total revenue from orders
+        const totalRevenue = orders.reduce((sum: number, order: any) => {
+          return sum + (Number.parseFloat(order.total_amount) || 0)
+        }, 0)
+
+        // Find drugs with low stock (less than 20)
+        const lowStock = drugs
+          .filter((drug: any) => drug.stock < 20)
+          .slice(0, 5)
+          .map((drug: any) => ({
+            id: drug.id,
+            name: drug.name,
+            stock: drug.stock,
+            category: drug.category,
+          }))
+
+        // Get recent orders
+        const recent = orders.slice(0, 5).map((order: any) => ({
+          id: order.id,
+          user_name: order.user_name || `User ${order.user_id}`,
+          total_amount: order.total_amount,
+          status: order.status,
+          created_at: order.created_at,
+        }))
+
+        // Count pending prescriptions
+        const pendingPrescriptionsCount = prescriptions.filter(
+          (prescription: any) => prescription.status === "pending",
+        ).length
+
+        // Get pending pharmacist applications
+        const pendingPharmacistsList = pharmacists
+          .filter((pharmacist: any) => pharmacist.status === "pending")
+          .slice(0, 5)
+          .map((pharmacist: any) => ({
+            id: pharmacist.id,
+            name: pharmacist.name,
+            email: pharmacist.email,
+            pharmacy_name: pharmacist.pharmacy_name,
+            status: pharmacist.status,
+            created_at: pharmacist.created_at,
+            license_image: pharmacist.license_image,
+          }))
+
+        // Count pending pharmacists
+        const pendingPharmacistsCount = pharmacists.filter((pharmacist: any) => pharmacist.status === "pending").length
+
+        // Update stats
+        setStats({
+          totalUsers: patients.length + pharmacists.length,
+          totalOrders: orders.length,
+          pendingPrescriptions: pendingPrescriptionsCount,
+          totalRevenue: totalRevenue,
+          drugsCount: drugs.length,
+          pharmacistsCount: pharmacists.length,
+          patientsCount: patients.length,
+          transactionsCount: orders.length, // Using orders as transactions
+          pendingPharmacists: pendingPharmacistsCount,
+        })
+
+        setRecentOrders(recent)
+        setLowStockDrugs(lowStock)
+        setPendingPharmacists(pendingPharmacistsList)
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchDashboardData()
+  }, [token])
+
+  const handleApprovePharmacist = async (pharmacistId: number) => {
+    setIsProcessing((prev) => ({ ...prev, [pharmacistId]: true }))
+    try {
+      // Use the provided API endpoint for approval
+      const response = await api.patch(
+        `https://e-pharmacybackend-production.up.railway.app/api/approve/${pharmacistId}`,
+        {}, // Assuming no additional payload is required
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+
+      console.log("Approval response:", response.data)
+
+      // Update the pharmacist in the list
+      setPendingPharmacists((prev) => prev.filter((pharmacist) => pharmacist.id !== pharmacistId))
+
+      // Update the stats
+      setStats((prev) => ({
+        ...prev,
+        pendingPharmacists: prev.pendingPharmacists - 1,
+      }))
+
+      toast({
+        title: "Pharmacist approved",
+        description: "The pharmacist has been approved successfully.",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      })
+    } catch (error: any) {
+      console.error("Error approving pharmacist:", error)
+
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to approve pharmacist. Please try again.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      })
+    } finally {
+      setIsProcessing((prev) => ({ ...prev, [pharmacistId]: false }))
+    }
+  }
+
+  const handleRejectPharmacist = async (pharmacistId: number) => {
+    setIsProcessing((prev) => ({ ...prev, [pharmacistId]: true }))
+    try {
+      // Use the provided API endpoint for rejection
+      const response = await api.patch(
+        `https://e-pharmacybackend-production.up.railway.app/api/reject/${pharmacistId}`,
+        { notes: "Rejected from dashboard" }, // Include a default rejection reason
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+
+      console.log("Rejection response:", response.data)
+
+      // Update the pharmacist in the list
+      setPendingPharmacists((prev) => prev.filter((pharmacist) => pharmacist.id !== pharmacistId))
+
+      // Update the stats
+      setStats((prev) => ({
+        ...prev,
+        pendingPharmacists: prev.pendingPharmacists - 1,
+      }))
+
+      toast({
+        title: "Pharmacist rejected",
+        description: "The pharmacist has been rejected.",
+        status: "info",
+        duration: 3000,
+        isClosable: true,
+      })
+    } catch (error: any) {
+      console.error("Error rejecting pharmacist:", error)
+
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to reject pharmacist. Please try again.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      })
+    } finally {
+      setIsProcessing((prev) => ({ ...prev, [pharmacistId]: false }))
+    }
+  }
+
+  const viewPharmacistDetails = (pharmacistId: number) => {
+    router.push(`/dashboard/pharmacists/${pharmacistId}`)
+  }
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "ETB",
+    }).format(amount)
+  }
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "-"
+
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    })
+  }
+
+  // Format date for header
+  const formatHeaderDate = (date: Date) => {
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })
+  }
+
+  // Format time for header
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "numeric",
+      hour12: true,
+    })
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "completed":
+      case "approved":
+        return "green"
+      case "pending":
+        return "yellow"
+      case "failed":
+      case "rejected":
+        return "red"
+      default:
+        return "gray"
+    }
+  }
+
+  if (isLoading) {
+    return <DashboardSkeleton />
+  }
+
   return (
     <Box>
-      <Heading mb="6">Dashboard</Heading>
+      {/* Top section with greeting and profile */}
+      <Grid templateColumns={{ base: "1fr", lg: "3fr 1fr" }} gap={6} mb={6}>
+        {/* Greeting card */}
+        <Card bg="blue.500" color="white" position="relative" overflow="hidden">
+          <CardBody p={6}>
+            <Flex direction="column" justify="space-between" h="full">
+              <Text fontSize="sm" mb={1}>
+                {formatHeaderDate(currentDate)} · {formatTime(currentDate)}
+              </Text>
 
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing="6" mb="6">
-        <StatCard title="Total Users" value="2,543" change="+12.5%" icon={Users} color="blue" />
-        <StatCard title="Total Orders" value="1,345" change="+8.2%" icon={ShoppingCart} color="green" />
-        <StatCard title="Revenue" value="$45,678" change="+23.1%" icon={DollarSign} color="purple" />
-        <StatCard title="Growth" value="15.3%" change="+4.5%" icon={TrendingUp} color="orange" />
-      </SimpleGrid>
+              <Box my={4}>
+                <Heading size="lg" mb={1}>
+                  Good Day, {formatValue(user?.name)}!
+                </Heading>
+                <Text>Welcome to ePharmacy Admin Dashboard</Text>
+              </Box>
+            </Flex>
 
-      <SimpleGrid columns={{ base: 1, lg: 2 }} spacing="6" mb="6">
-        <Card>
-          <CardBody>
-            <Heading size="md" mb="4">
-              Monthly Sales
-            </Heading>
-            <Box h="300px">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={salesData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="total" fill="#4299E1" />
-                </BarChart>
-              </ResponsiveContainer>
+            {/* Decorative elements */}
+            <Box position="absolute" right="5%" top="20%" opacity={0.9}>
+              <Image src="/pharmacist.png" alt="Pharmacist illustration" height="120px" />
+            </Box>
+            <Box position="absolute" right="30%" top="10%" opacity={0.3}>
+              <Icon as={FiFileText} boxSize={8} />
+            </Box>
+            <Box position="absolute" right="20%" bottom="20%" opacity={0.3}>
+              <Icon as={FiDollarSign} boxSize={6} />
+            </Box>
+            <Box position="absolute" right="40%" top="60%" opacity={0.3}>
+              <Icon as={FiShoppingBag} boxSize={10} />
             </Box>
           </CardBody>
         </Card>
 
+        {/* Profile card */}
         <Card>
-          <CardBody>
-            <Heading size="md" mb="4">
-              User Activity
+          <CardBody p={4}>
+            <VStack spacing={4} align="center">
+              <Heading size="md" color="blue.500">
+                MY PROFILE
+              </Heading>
+
+              <Avatar size="xl" name={user?.name} />
+
+              <VStack spacing={1}>
+                <Heading size="md">{formatValue(user?.name)}</Heading>
+                <Text color="gray.500" fontSize="sm">
+                  E-MARKET PHARMACY ADMIN
+                </Text>
+                <HStack>
+                  <Icon as={FiMapPin} color="blue.500" />
+                  <Text fontSize="sm">Addis Ababa, Ethiopia</Text>
+                </HStack>
+              </VStack>
+
+              <Divider />
+
+              <VStack align="center" justify="center">
+                <Heading size="md">{stats.totalOrders}</Heading>
+                <Text fontSize="sm" color="gray.500" align="center">
+                  Total Orders
+                </Text>
+              </VStack>
+            </VStack>
+          </CardBody>
+        </Card>
+      </Grid>
+
+      {/* Analytics section */}
+      <SimpleGrid columns={{ base: 1, md: 4 }} spacing={6} mb={6}>
+        {/* Total Users */}
+        <Card>
+          <CardBody p={4}>
+            <Flex align="center" mb={3}>
+              <Box bg="blue.50" p={2} borderRadius="md" mr={3}>
+                <Icon as={FiUsers} color="blue.500" boxSize={5} />
+              </Box>
+              <Text fontWeight="bold">Total Users</Text>
+            </Flex>
+            <Heading size="2xl" mb={2}>
+              {stats.totalUsers}
             </Heading>
-            <Box h="300px">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={userActivityData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="active" stroke="#805AD5" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
-            </Box>
+            <Text fontSize="sm" color="gray.500">
+              {stats.patientsCount} patients, {stats.pharmacistsCount} pharmacists
+            </Text>
+          </CardBody>
+        </Card>
+
+        {/* Pharmacists */}
+        <Card>
+          <CardBody p={4}>
+            <Flex align="center" mb={3}>
+              <Box bg="green.50" p={2} borderRadius="md" mr={3}>
+                <Icon as={FiUserCheck} color="green.500" boxSize={5} />
+              </Box>
+              <Text fontWeight="bold">Pharmacists</Text>
+            </Flex>
+            <Heading size="2xl" mb={2}>
+              {stats.pharmacistsCount}
+            </Heading>
+            <Text fontSize="sm" color="gray.500">
+              {stats.pharmacistsCount - stats.pendingPharmacists} approved, {stats.pendingPharmacists} pending
+            </Text>
+          </CardBody>
+        </Card>
+
+        {/* Pending Approvals */}
+        <Card>
+          <CardBody p={4}>
+            <Flex align="center" mb={3}>
+              <Box bg="yellow.50" p={2} borderRadius="md" mr={3}>
+                <Icon as={FiUserX} color="yellow.500" boxSize={5} />
+              </Box>
+              <Text fontWeight="bold">Pending Approvals</Text>
+            </Flex>
+            <Heading size="2xl" mb={2}>
+              {stats.pendingPharmacists}
+            </Heading>
+            <Text fontSize="sm" color="gray.500">
+              Pharmacists awaiting verification
+            </Text>
+          </CardBody>
+        </Card>
+
+        {/* Drugs */}
+        <Card>
+          <CardBody p={4}>
+            <Flex align="center" mb={3}>
+              <Box bg="purple.50" p={2} borderRadius="md" mr={3}>
+                <Icon as={FiFileText} color="purple.500" boxSize={5} />
+              </Box>
+              <Text fontWeight="bold">Medications</Text>
+            </Flex>
+            <Heading size="2xl" mb={2}>
+              {stats.drugsCount}
+            </Heading>
+            <Text fontSize="sm" color="gray.500">
+              {lowStockDrugs.length} items low in stock
+            </Text>
           </CardBody>
         </Card>
       </SimpleGrid>
 
-      <Card>
+      {/* Pending Pharmacist Approvals */}
+      <Card mb={6}>
+        <CardHeader pb={2}>
+          <Heading size="md">Pending Pharmacist Approvals</Heading>
+        </CardHeader>
         <CardBody>
-          <Tabs>
-            <TabList>
-              <Tab>Recent Orders</Tab>
-              <Tab>Pending Prescriptions</Tab>
-            </TabList>
-            <TabPanels>
-              <TabPanel px="0">
-                <Box overflowX="auto">
-                  <Table variant="simple">
-                    <Thead>
-                      <Tr>
-                        <Th>Order ID</Th>
-                        <Th>Customer</Th>
-                        <Th>Date</Th>
-                        <Th>Status</Th>
-                        <Th isNumeric>Total</Th>
-                      </Tr>
-                    </Thead>
-                    <Tbody>
-                      {recentOrders.map((order) => (
-                        <Tr key={order.id}>
-                          <Td fontWeight="medium">{order.id}</Td>
-                          <Td>{order.customer}</Td>
-                          <Td>{order.date}</Td>
-                          <Td>
-                            <OrderStatusBadge status={order.status} />
-                          </Td>
-                          <Td isNumeric>{order.total}</Td>
-                        </Tr>
-                      ))}
-                    </Tbody>
-                  </Table>
-                </Box>
-              </TabPanel>
-              <TabPanel>
-                <Text>No pending prescriptions to verify.</Text>
-              </TabPanel>
-            </TabPanels>
-          </Tabs>
+          {pendingPharmacists.length === 0 ? (
+            <Text textAlign="center" py={4} color="gray.500">
+              No pending pharmacist approvals
+            </Text>
+          ) : (
+            <Table variant="simple" size="sm">
+              <Thead>
+                <Tr>
+                  <Th>Name</Th>
+                  <Th>Email</Th>
+                  <Th>Pharmacy</Th>
+                  <Th>Date Applied</Th>
+                  <Th>Actions</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {pendingPharmacists.map((pharmacist) => (
+                  <Tr key={pharmacist.id}>
+                    <Td fontWeight="medium">{formatValue(pharmacist.name)}</Td>
+                    <Td>{formatValue(pharmacist.email)}</Td>
+                    <Td>{formatValue(pharmacist.pharmacy_name)}</Td>
+                    <Td>{formatDate(pharmacist.created_at)}</Td>
+                    <Td>
+                      <HStack spacing={2}>
+                        <Button
+                          leftIcon={<FiEye />}
+                          size="sm"
+                          variant="outline"
+                          onClick={() => viewPharmacistDetails(pharmacist.id)}
+                        >
+                          View
+                        </Button>
+                        <Button
+                          leftIcon={<FiCheckCircle />}
+                          size="sm"
+                          colorScheme="green"
+                          isLoading={isProcessing[pharmacist.id]}
+                          onClick={() => handleApprovePharmacist(pharmacist.id)}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          leftIcon={<FiXCircle />}
+                          size="sm"
+                          colorScheme="red"
+                          isLoading={isProcessing[pharmacist.id]}
+                          onClick={() => handleRejectPharmacist(pharmacist.id)}
+                        >
+                          Reject
+                        </Button>
+                      </HStack>
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          )}
+          {pendingPharmacists.length > 0 && (
+            <Flex justify="flex-end" mt={4}>
+              <Button
+                size="sm"
+                variant="outline"
+                colorScheme="blue"
+                onClick={() => router.push("/dashboard/pharmacists?tab=pending")}
+              >
+                View All Pending Approvals
+              </Button>
+            </Flex>
+          )}
         </CardBody>
       </Card>
+
+      {/* Bottom section with inventory and orders */}
+      <Grid templateColumns={{ base: "1fr", lg: "1fr 1fr" }} gap={6}>
+        {/* Low Stock Items */}
+        <Card>
+          <CardHeader pb={2}>
+            <Heading size="md">Low Stock Items</Heading>
+          </CardHeader>
+          <CardBody>
+            <VStack spacing={4} align="stretch">
+              {lowStockDrugs.length === 0 ? (
+                <Text textAlign="center" py={4} color="gray.500">
+                  No low stock items
+                </Text>
+              ) : (
+                lowStockDrugs.map((drug) => (
+                  <Box key={drug.id}>
+                    <Flex justify="space-between" mb={1}>
+                      <Text fontSize="sm" fontWeight="medium">
+                        {drug.name}
+                      </Text>
+                      <Text fontSize="sm" color="gray.600">
+                        {drug.stock} in stock
+                      </Text>
+                    </Flex>
+                    <Progress
+                      value={(drug.stock / 100) * 100}
+                      size="sm"
+                      colorScheme={drug.stock < 10 ? "red" : drug.stock < 30 ? "yellow" : "green"}
+                      borderRadius="full"
+                    />
+                    <Text fontSize="xs" color="gray.500" mt={1}>
+                      Category: {drug.category}
+                    </Text>
+                  </Box>
+                ))
+              )}
+            </VStack>
+
+            {lowStockDrugs.length > 0 && (
+              <Flex justify="flex-end" mt={4}>
+                <Button size="sm" variant="outline" colorScheme="blue" onClick={() => router.push("/dashboard/drugs")}>
+                  View All Inventory
+                </Button>
+              </Flex>
+            )}
+          </CardBody>
+        </Card>
+
+        {/* Recent Orders */}
+        <Card>
+          <CardHeader pb={2}>
+            <Heading size="md">Recent Orders</Heading>
+          </CardHeader>
+          <CardBody>
+            {recentOrders.length === 0 ? (
+              <Text textAlign="center" py={4} color="gray.500">
+                No recent orders
+              </Text>
+            ) : (
+              <Table variant="simple" size="sm">
+                <Thead>
+                  <Tr>
+                    <Th>Order ID</Th>
+                    <Th>Customer</Th>
+                    <Th>Amount</Th>
+                    <Th>Status</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {recentOrders.map((order) => (
+                    <Tr key={order.id}>
+                      <Td>#{order.id}</Td>
+                      <Td>{formatValue(order.user_name)}</Td>
+                      <Td>{formatCurrency(Number(order.total_amount))}</Td>
+                      <Td>
+                        <Badge colorScheme={getStatusColor(order.status)}>
+                          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                        </Badge>
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            )}
+
+            {recentOrders.length > 0 && (
+              <Flex justify="flex-end" mt={4}>
+                <Button size="sm" variant="outline" colorScheme="blue" onClick={() => router.push("/dashboard/orders")}>
+                  View All Orders
+                </Button>
+              </Flex>
+            )}
+          </CardBody>
+        </Card>
+      </Grid>
     </Box>
   )
 }
 
-function StatCard({ title, value, change, icon, color }: { title: string; value: string; change: string; icon: React.ElementType; color: string }) {
+function DashboardSkeleton() {
   return (
-    <Card>
-      <CardBody>
-        <Flex justifyContent="space-between">
-          <Box>
-            <Stat>
-              <StatLabel color="gray.500">{title}</StatLabel>
-              <StatNumber fontSize="2xl">{value}</StatNumber>
-              <StatHelpText color={change.startsWith("+") ? "green.500" : "red.500"}>{change}</StatHelpText>
-            </Stat>
-          </Box>
-          <Flex alignItems="center" justifyContent="center" h="12" w="12" rounded="full" bg={`${color}.100`}>
-            <Icon as={icon} color={`${color}.500`} boxSize="5" />
-          </Flex>
-        </Flex>
-      </CardBody>
-    </Card>
-  );
-}
+    <Box>
+      <Skeleton height="40px" width="200px" mb={6} />
 
-function OrderStatusBadge({ status }: { status: string }) {
-  let color
-  switch (status) {
-    case "Completed":
-      color = "green"
-      break
-    case "Processing":
-      color = "blue"
-      break
-    case "Pending":
-      color = "orange"
-      break
-    case "Cancelled":
-      color = "red"
-      break
-    default:
-      color = "gray"
-  }
+      {/* Top section skeleton */}
+      <Grid templateColumns={{ base: "1fr", lg: "3fr 1fr" }} gap={6} mb={6}>
+        <Skeleton height="200px" borderRadius="lg" />
+        <Skeleton height="200px" borderRadius="lg" />
+      </Grid>
 
+      {/* Analytics section skeleton */}
+      <SimpleGrid columns={{ base: 1, md: 4 }} spacing={6} mb={6}>
+        {[1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} height="120px" borderRadius="lg" />
+        ))}
+      </SimpleGrid>
 
+      {/* Pending approvals skeleton */}
+      <Skeleton height="300px" borderRadius="lg" mb={6} />
 
-  return <Badge colorScheme={color}>{status}</Badge>
+      {/* Bottom section skeleton */}
+      <Grid templateColumns={{ base: "1fr", lg: "1fr 1fr" }} gap={6}>
+        {[1, 2].map((i) => (
+          <Skeleton key={i} height="300px" borderRadius="lg" />
+        ))}
+      </Grid>
+    </Box>
+  )
 }

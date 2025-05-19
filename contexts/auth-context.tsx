@@ -18,8 +18,9 @@ type AuthContextType = {
   user: User | null
   token: string | null
   login: (email: string, password: string) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
   isLoading: boolean
+  verifyToken: () => Promise<boolean>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -31,43 +32,87 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const toast = useToast()
 
-  useEffect(() => {
-    // Check if user is logged in
-    // This code only runs on the client side
-    if (typeof window !== "undefined") {
-      const storedUser = localStorage.getItem("user")
+  // Verify token function
+  const verifyToken = async (): Promise<boolean> => {
+    try {
       const storedToken = localStorage.getItem("token")
 
-      if (storedUser && storedToken) {
-        setUser(JSON.parse(storedUser))
-        setToken(storedToken)
-
-        // Set default authorization header for all axios requests
-        axios.defaults.headers.common["Authorization"] = `Bearer ${storedToken}`
+      if (!storedToken) {
+        return false
       }
-      setIsLoading(false)
+
+      // Set authorization header
+      axios.defaults.headers.common["Authorization"] = `Bearer ${storedToken}`
+
+      // Verify token with the API
+      const response = await axios.get("https://e-pharmacybackend-production.up.railway.app/api/verify-token")
+
+      console.log("Token verification response:", response.data)
+
+      // If verification successful, set user data
+      if (response.data.success || response.status === 200) {
+        const storedUser = localStorage.getItem("user")
+        if (storedUser) {
+          setUser(JSON.parse(storedUser))
+          setToken(storedToken)
+        }
+        return true
+      } else {
+        // Clear invalid token
+        localStorage.removeItem("token")
+        localStorage.removeItem("user")
+        return false
+      }
+    } catch (error) {
+      console.error("Token verification failed:", error)
+      // Clear invalid token
+      localStorage.removeItem("token")
+      localStorage.removeItem("user")
+      return false
     }
-  }, [])
+  }
+
+  useEffect(() => {
+    // Check if user is logged in
+    const checkAuth = async () => {
+      setIsLoading(true)
+      try {
+        const isValid = await verifyToken()
+
+        if (!isValid) {
+          // If on a protected route, redirect to login
+          if (
+            typeof window !== "undefined" &&
+            window.location.pathname !== "/" &&
+            window.location.pathname !== "/login"
+          ) {
+            router.push("/login")
+          }
+        }
+      } catch (error) {
+        console.error("Auth check error:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    checkAuth()
+  }, [router])
 
   const login = async (email: string, password: string) => {
     setIsLoading(true)
     try {
-      interface LoginResponse {
-        access_token: string
-        redirect_url: string
-        status: string
-        user?: any
-      }
-
-      const response = await axios.post<LoginResponse>(
-        "https://epharmacy-backend-production.up.railway.app/api/auth/login",
+      const response = await axios.post(
+        "https://e-pharmacybackend-production.up.railway.app/api/auth/login",
         { email, password },
         { headers: { "Content-Type": "application/json" } },
       )
 
-      const { access_token, status, user: userData } = response.data
+      // Handle different response structures
+      const token = response.data.data?.token || response.data.token
+      const userData = response.data.data?.user || response.data.user
 
-      if (status === "success" && access_token) {
+      if (token) {
         // Create user object from response
         const user = userData || {
           id: 1,
@@ -77,17 +122,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         setUser(user)
-        setToken(access_token)
+        setToken(token)
 
         // Store in localStorage
         localStorage.setItem("user", JSON.stringify(user))
-        localStorage.setItem("token", access_token)
+        localStorage.setItem("token", token)
 
         // Also set a cookie for the middleware
-        document.cookie = `token=${access_token}; path=/; max-age=${60 * 60 * 24 * 7}` // 7 days
+        document.cookie = `token=${token}; path=/; max-age=${60 * 60 * 24 * 7}` // 7 days
 
         // Set default authorization header
-        axios.defaults.headers.common["Authorization"] = `Bearer ${access_token}`
+        axios.defaults.headers.common["Authorization"] = `Bearer ${token}`
 
         toast({
           title: "Login successful",
@@ -97,17 +142,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isClosable: true,
         })
 
-        // Navigate to dashboard
-        try {
-          router.push("/dashboard")
-          // As a fallback, also use direct navigation
-          setTimeout(() => {
+        // Navigate to dashboard with fallback
+        setTimeout(() => {
+          try {
+            router.push("/dashboard")
+            // As a fallback, also use direct navigation
+            setTimeout(() => {
+              if (window.location.pathname !== "/dashboard") {
+                window.location.href = "/dashboard"
+              }
+            }, 500)
+          } catch (error) {
+            console.error("Navigation error:", error)
             window.location.href = "/dashboard"
-          }, 500)
-        } catch (error) {
-          console.error("Navigation error:", error)
-          window.location.href = "/dashboard"
-        }
+          }
+        }, 300)
       } else {
         throw new Error("Invalid credentials or server error")
       }
@@ -125,31 +174,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const logout = () => {
-    // Remove auth header
-    delete axios.defaults.headers.common["Authorization"]
+  const logout = async () => {
+    try {
+      setIsLoading(true)
 
-    setUser(null)
-    setToken(null)
-    localStorage.removeItem("user")
-    localStorage.removeItem("token")
+      // Call the logout API endpoint
+      if (token) {
+        await axios.post(
+          "https://e-pharmacybackend-production.up.railway.app/api/auth/logout",
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        )
+      }
 
-    // Clear the cookie
-    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+      // Remove auth header
+      delete axios.defaults.headers.common["Authorization"]
 
-    // Redirect to login page
-    window.location.href = "/login"
+      // Clear local storage
+      setUser(null)
+      setToken(null)
+      localStorage.removeItem("user")
+      localStorage.removeItem("token")
 
-    toast({
-      title: "Logged out",
-      description: "You have been successfully logged out",
-      status: "info",
-      duration: 3000,
-      isClosable: true,
-    })
+      // Clear the cookie
+      document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out",
+        status: "info",
+        duration: 3000,
+        isClosable: true,
+      })
+
+      // Redirect to login page
+      router.push("/login")
+    } catch (error) {
+      console.error("Logout error:", error)
+
+      // Even if the API call fails, clear local data
+      setUser(null)
+      setToken(null)
+      localStorage.removeItem("user")
+      localStorage.removeItem("token")
+      document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+
+      // Redirect to login page
+      router.push("/login")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  return <AuthContext.Provider value={{ user, token, login, logout, isLoading }}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={{ user, token, login, logout, isLoading, verifyToken }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {

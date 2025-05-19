@@ -555,14 +555,75 @@ export default function LocationsPage() {
 function LocationsSkeleton() {
   return (
     <Stack spacing={6}>
-      <Box>
-        <Skeleton height="8" width="32" />
-        <Skeleton height="4" width="48" mt={2} />
-      </Box>
+      <Flex
+        direction={{ base: "column", sm: "row" }}
+        align={{ sm: "center" }}
+        justify={{ sm: "space-between" }}
+        gap={4}
+      >
+        <Box>
+          <Skeleton height="32px" width="180px" mb={1} />
+          <Skeleton height="18px" width="300px" />
+        </Box>
+        <Skeleton height="40px" width="150px" />
+      </Flex>
 
       <Grid templateColumns={{ base: "1fr", lg: "1fr 1fr" }} gap={6}>
-        <Skeleton height="500px" width="full" />
-        <Skeleton height="500px" width="full" />
+        <Card>
+          <CardHeader>
+            <Flex align="center" justify="space-between">
+              <Skeleton height="20px" width="150px" />
+              <Skeleton height="40px" width="200px" />
+            </Flex>
+          </CardHeader>
+          <CardBody>
+            <Box overflowX="auto">
+              <Table variant="simple" size="sm">
+                <Thead>
+                  <Tr>
+                    {["Name", "Address", "Phone", "Actions"].map((header) => (
+                      <Th key={header}>
+                        <Skeleton height="14px" width="80%" />
+                      </Th>
+                    ))}
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {Array(5)
+                    .fill(0)
+                    .map((_, i) => (
+                      <Tr key={i}>
+                        <Td>
+                          <Skeleton height="16px" width="120px" />
+                        </Td>
+                        <Td>
+                          <Skeleton height="16px" width="180px" />
+                        </Td>
+                        <Td>
+                          <Skeleton height="16px" width="100px" />
+                        </Td>
+                        <Td isNumeric>
+                          <Flex justify="flex-end" gap={2}>
+                            <Skeleton height="24px" width="24px" />
+                            <Skeleton height="24px" width="24px" />
+                          </Flex>
+                        </Td>
+                      </Tr>
+                    ))}
+                </Tbody>
+              </Table>
+            </Box>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <Skeleton height="20px" width="100px" />
+          </CardHeader>
+          <CardBody>
+            <Skeleton height="400px" borderRadius="md" />
+          </CardBody>
+        </Card>
       </Grid>
     </Stack>
   )

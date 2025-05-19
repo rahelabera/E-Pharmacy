@@ -444,13 +444,74 @@ function MessagesSkeleton() {
   return (
     <Stack spacing={6}>
       <Box>
-        <Skeleton height="8" width="32" />
-        <Skeleton height="4" width="48" mt={2} />
+        <Skeleton height="32px" width="120px" mb={1} />
+        <Skeleton height="18px" width="350px" />
       </Box>
 
       <Grid templateColumns={{ base: "1fr", md: "1fr 2fr" }} gap={6}>
-        <Skeleton height="600px" width="full" />
-        <Skeleton height="600px" width="full" />
+        <Card>
+          <CardHeader pb={3}>
+            <Skeleton height="40px" width="full" />
+          </CardHeader>
+          <CardBody p={0}>
+            <Box maxH="calc(100vh - 300px)" overflowY="auto">
+              <Stack divider={<Box borderBottomWidth="1px" />}>
+                {Array(5)
+                  .fill(0)
+                  .map((_, i) => (
+                    <Box key={i} p={3}>
+                      <Flex gap={3}>
+                        <Skeleton height="40px" width="40px" borderRadius="full" />
+                        <Box flex="1" minW={0}>
+                          <Flex justify="space-between" align="baseline">
+                            <Skeleton height="16px" width="100px" />
+                            <Skeleton height="12px" width="60px" />
+                          </Flex>
+                          <Skeleton height="14px" width="full" mt={1} />
+                        </Box>
+                      </Flex>
+                    </Box>
+                  ))}
+              </Stack>
+            </Box>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader pb={3} borderBottomWidth="1px">
+            <Flex align="center" gap={3}>
+              <Skeleton height="40px" width="40px" borderRadius="full" />
+              <Box>
+                <Skeleton height="18px" width="120px" mb={1} />
+                <Skeleton height="14px" width="150px" />
+              </Box>
+            </Flex>
+          </CardHeader>
+          <CardBody p={0} display="flex" flexDirection="column" flex="1">
+            <Box flex="1" p={4} overflowY="auto" maxH="calc(100vh - 400px)">
+              {Array(6)
+                .fill(0)
+                .map((_, i) => (
+                  <Box
+                    key={i}
+                    mb={4}
+                    maxW="80%"
+                    ml={i % 2 === 0 ? "auto" : undefined}
+                    mr={i % 2 !== 0 ? "auto" : undefined}
+                  >
+                    <Skeleton height="60px" width="full" borderRadius="lg" bg={i % 2 === 0 ? "blue.500" : "gray.100"} />
+                    <Skeleton height="12px" width="60px" mt={1} ml={i % 2 === 0 ? "auto" : undefined} />
+                  </Box>
+                ))}
+            </Box>
+            <Box p={4} borderTopWidth="1px">
+              <Flex gap={2}>
+                <Skeleton height="40px" width="full" />
+                <Skeleton height="40px" width="40px" />
+              </Flex>
+            </Box>
+          </CardBody>
+        </Card>
       </Grid>
     </Stack>
   )

@@ -41,10 +41,10 @@ export function Logo({ size = "medium", showText = true }: LogoProps) {
       </Box>
       {showText && (
         <Flex direction="column" ml={2}>
-          <Text fontWeight="bold" fontSize={sizes[size].text} lineHeight="1" color="blue.600">
-            ePharmacy
+          <Text fontWeight="bold" color="white" fontSize={sizes[size].text} lineHeight="1">
+            E-Pharmacy
           </Text>
-          <Text fontSize="xs" color="gray.500" lineHeight="1">
+          <Text fontSize="xs"  color="white" lineHeight="1" mt={1}>
             Admin Portal
           </Text>
         </Flex>

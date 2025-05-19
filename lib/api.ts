@@ -1,6 +1,6 @@
 import axios from "axios"
 
-const API_BASE_URL = "https://epharmacy-backend-production.up.railway.app/api"
+const API_BASE_URL = "https://e-pharmacybackend-production.up.railway.app/api"
 
 // Create an axios instance with default config
 const api = axios.create({

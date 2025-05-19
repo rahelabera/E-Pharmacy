@@ -527,11 +527,77 @@ function OrdersSkeleton() {
   return (
     <Stack spacing={6}>
       <Box>
-        <Skeleton height="8" width="32" />
-        <Skeleton height="4" width="48" mt={2} />
+        <Skeleton height="32px" width="120px" mb={1} />
+        <Skeleton height="18px" width="300px" />
       </Box>
 
-      <Skeleton height="500px" width="full" />
+      <Card>
+        <CardHeader pb={3}>
+          <Flex
+            direction={{ base: "column", sm: "row" }}
+            align={{ sm: "center" }}
+            justify={{ sm: "space-between" }}
+            gap={4}
+          >
+            <Skeleton height="40px" width={{ base: "full", sm: "250px" }} />
+            <Skeleton height="40px" width={{ base: "full", sm: "350px" }} />
+          </Flex>
+        </CardHeader>
+        <CardBody>
+          <Box overflowX="auto">
+            <Table variant="simple" size="sm">
+              <Thead>
+                <Tr>
+                  {["Order ID", "Customer", "Date", "Total", "Status", "Actions"].map((header) => (
+                    <Th key={header}>
+                      <Skeleton height="14px" width="80%" />
+                    </Th>
+                  ))}
+                </Tr>
+              </Thead>
+              <Tbody>
+                {Array(6)
+                  .fill(0)
+                  .map((_, i) => (
+                    <Tr key={i}>
+                      <Td>
+                        <Skeleton height="16px" width="60px" />
+                      </Td>
+                      <Td>
+                        <Box>
+                          <Skeleton height="16px" width="120px" mb={1} />
+                          <Skeleton height="14px" width="150px" />
+                        </Box>
+                      </Td>
+                      <Td>
+                        <Skeleton height="16px" width="80px" />
+                      </Td>
+                      <Td isNumeric>
+                        <Skeleton height="16px" width="70px" />
+                      </Td>
+                      <Td>
+                        <Skeleton height="20px" width="70px" borderRadius="full" />
+                      </Td>
+                      <Td isNumeric>
+                        <Flex justify="flex-end">
+                          <Skeleton height="24px" width="32px" />
+                        </Flex>
+                      </Td>
+                    </Tr>
+                  ))}
+              </Tbody>
+            </Table>
+          </Box>
+          <Flex justify="space-between" align="center" mt={4}>
+            <Skeleton height="16px" width="200px" />
+            <Flex gap={2}>
+              <Skeleton height="32px" width="80px" />
+              <Skeleton height="16px" width="80px" />
+              <Skeleton height="32px" width="80px" />
+            </Flex>
+          </Flex>
+        </CardBody>
+      </Card>
     </Stack>
   )
 }

@@ -11,9 +11,18 @@ import {
   MenuItem,
   Text,
   useColorModeValue,
+  InputGroup,
+  InputLeftElement,
+  Input,
+  HStack,
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
 } from "@chakra-ui/react"
-import { FiMenu, FiLogOut, FiUser, FiSettings } from "react-icons/fi"
-import { useRouter } from "next/navigation"
+import { FiMenu, FiLogOut, FiUser, FiSettings, FiSearch, FiBell, FiMapPin } from "react-icons/fi"
+import { useRouter, usePathname } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
+import Link from "next/link"
 
 interface HeaderProps {
   onOpenSidebar: () => void
@@ -21,11 +30,45 @@ interface HeaderProps {
 
 export function Header({ onOpenSidebar }: HeaderProps) {
   const router = useRouter()
+  const pathname = usePathname()
+  const { logout, user } = useAuth()
 
-  const handleLogout = () => {
-    localStorage.removeItem("token")
-    localStorage.removeItem("user")
-    router.push("/login")
+  const handleLogout = async () => {
+    await logout()
+  }
+
+  // Helper function to handle null values
+  const formatValue = (value: string | null | undefined): string => {
+    return value ? value : "-"
+  }
+
+  // Generate breadcrumbs based on the current path
+  const generateBreadcrumbs = () => {
+    const paths = pathname.split("/").filter(Boolean)
+
+    // Create breadcrumb items
+    return paths.map((path, index) => {
+      // Build the URL for this breadcrumb
+      const url = `/${paths.slice(0, index + 1).join("/")}`
+
+      // Format the breadcrumb text (capitalize first letter)
+      const text = path.charAt(0).toUpperCase() + path.slice(1)
+
+      // If this is the last item, don't make it a link
+      const isLast = index === paths.length - 1
+
+      return (
+        <BreadcrumbItem key={url} isCurrentPage={isLast}>
+          {isLast ? (
+            <Text>{text}</Text>
+          ) : (
+            <BreadcrumbLink as={Link} href={url}>
+              {text}
+            </BreadcrumbLink>
+          )}
+        </BreadcrumbItem>
+      )
+    })
   }
 
   return (
@@ -43,24 +86,57 @@ export function Header({ onOpenSidebar }: HeaderProps) {
       top="0"
       zIndex="10"
     >
-      <IconButton
-        display={{ base: "flex", md: "none" }}
-        onClick={onOpenSidebar}
-        variant="outline"
-        aria-label="open menu"
-        icon={<FiMenu />}
-      />
+      <Flex align="center">
+        <IconButton
+          display={{ base: "flex", md: "none" }}
+          onClick={onOpenSidebar}
+          variant="outline"
+          aria-label="open menu"
+          icon={<FiMenu />}
+        />
 
-      <Text fontSize="lg" fontWeight="bold" display={{ base: "none", md: "flex" }}>
-        E-Market Pharmacy Admin
-      </Text>
+        <Breadcrumb ml={{ base: 2, md: 4 }} fontSize="sm">
+          {generateBreadcrumbs()}
+        </Breadcrumb>
+      </Flex>
 
-      <Box>
+      {/* <Flex flex={1} justify="center" px={8}>
+        <InputGroup maxW="md">
+          <InputLeftElement pointerEvents="none">
+            <FiSearch color="gray.300" />
+          </InputLeftElement>
+          <Input type="text" placeholder="Search..." borderRadius="full" bg="gray.50" />
+        </InputGroup>
+      </Flex> */}
+
+      <HStack spacing={4}>
+        {/* <IconButton aria-label="Notifications" icon={<FiBell />} variant="ghost" colorScheme="blue" /> */}
+
         <Menu>
           <MenuButton as={Box} rounded="full" cursor="pointer">
-            <Avatar size="sm" />
+            <HStack spacing={2}>
+              <Avatar size="sm" name={user?.name} />
+              <Box display={{ base: "none", md: "block" }} textAlign="left">
+                <Text fontWeight="medium" fontSize="sm" lineHeight="tight">
+                  {user?.name || "-"}
+                </Text>
+                <Text fontSize="xs" color="gray.500">
+                  PHARMACY ADMIN
+                </Text>
+              </Box>
+            </HStack>
           </MenuButton>
           <MenuList>
+            <Box px={3} py={2} borderBottomWidth="1px">
+              <Text fontWeight="medium">{user?.name || "-"}</Text>
+              <Text fontSize="xs" color="gray.500">
+                PHARMACY ADMIN
+              </Text>
+              <HStack mt={1} fontSize="xs" color="gray.500">
+                <FiMapPin />
+                <Text>Addis Ababa, Ethiopia</Text>
+              </HStack>
+            </Box>
             <MenuItem icon={<FiUser />}>Profile</MenuItem>
             <MenuItem icon={<FiSettings />}>Settings</MenuItem>
             <MenuItem icon={<FiLogOut />} onClick={handleLogout}>
@@ -68,7 +144,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
             </MenuItem>
           </MenuList>
         </Menu>
-      </Box>
+      </HStack>
     </Flex>
   )
 }
