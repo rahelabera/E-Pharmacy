@@ -73,31 +73,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    // Check if user is logged in
-    const checkAuth = async () => {
-      setIsLoading(true)
-      try {
-        const isValid = await verifyToken()
+  const checkAuth = async () => {
+    setIsLoading(true);
+    try {
+      const isValid = await verifyToken();
 
-        if (!isValid) {
-          // If on a protected route, redirect to login
-          if (
-            typeof window !== "undefined" &&
-            window.location.pathname !== "/" &&
-            window.location.pathname !== "/login"
-          ) {
-            router.push("/login")
-          }
+      if (!isValid && typeof window !== "undefined") {
+        // Clear token and user data if invalid
+        setUser(null);
+        setToken(null);
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
+        document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+
+        // Redirect to login only if not already on login or root
+        if (window.location.pathname !== "/" && window.location.pathname !== "/login") {
+          router.push("/login");
         }
-      } catch (error) {
-        console.error("Auth check error:", error)
-      } finally {
-        setIsLoading(false)
       }
+    } catch (error) {
+      console.error("Auth check error:", error);
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    checkAuth()
-  }, [router])
+  checkAuth();
+}, [router]);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true)
