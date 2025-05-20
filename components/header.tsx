@@ -78,9 +78,9 @@ export function Header({ onOpenSidebar }: HeaderProps) {
       justify="space-between"
       w="full"
       px="4"
-      bg={useColorModeValue("white", "gray.800")}
-      borderBottomWidth="1px"
-      borderColor={useColorModeValue("gray.200", "gray.700")}
+      bg="transparent" // Make header background transparent
+      // borderBottomWidth="1px"
+      // borderColor={useColorModeValue("gray.200", "gray.700")}
       h="14"
       position="sticky"
       top="0"
@@ -95,9 +95,9 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           icon={<FiMenu />}
         />
 
-        <Breadcrumb ml={{ base: 2, md: 4 }} fontSize="sm">
+        {/* <Breadcrumb ml={{ base: 2, md: 4 }} fontSize="sm">
           {generateBreadcrumbs()}
-        </Breadcrumb>
+        </Breadcrumb> */}
       </Flex>
 
       {/* <Flex flex={1} justify="center" px={8}>
@@ -116,29 +116,29 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           <MenuButton as={Box} rounded="full" cursor="pointer">
             <HStack spacing={2}>
               <Avatar size="sm" name={user?.name} />
-              <Box display={{ base: "none", md: "block" }} textAlign="left">
+              {/* <Box display={{ base: "none", md: "block" }} textAlign="left">
                 <Text fontWeight="medium" fontSize="sm" lineHeight="tight">
                   {user?.name || "-"}
                 </Text>
                 <Text fontSize="xs" color="gray.500">
-                  PHARMACY ADMIN
+                  ADMIN
                 </Text>
-              </Box>
+              </Box> */}
             </HStack>
           </MenuButton>
           <MenuList>
             <Box px={3} py={2} borderBottomWidth="1px">
               <Text fontWeight="medium">{user?.name || "-"}</Text>
               <Text fontSize="xs" color="gray.500">
-                PHARMACY ADMIN
+                E-MARKET PHARMACY ADMIN
               </Text>
               <HStack mt={1} fontSize="xs" color="gray.500">
                 <FiMapPin />
                 <Text>Addis Ababa, Ethiopia</Text>
               </HStack>
             </Box>
-            <MenuItem icon={<FiUser />}>Profile</MenuItem>
-            <MenuItem icon={<FiSettings />}>Settings</MenuItem>
+            {/* <MenuItem icon={<FiUser />}>Profile</MenuItem>
+            <MenuItem icon={<FiSettings />}>Settings</MenuItem> */}
             <MenuItem icon={<FiLogOut />} onClick={handleLogout}>
               Logout
             </MenuItem>

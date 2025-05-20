@@ -1,8 +1,7 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import {
   Box,
   Button,
@@ -10,26 +9,10 @@ import {
   CardBody,
   CardHeader,
   Flex,
-  FormControl,
-  FormLabel,
   Heading,
-  IconButton,
   Input,
   InputGroup,
   InputLeftElement,
-  Menu,
-  MenuButton,
-  MenuDivider,
-  MenuItem,
-  MenuList,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  ModalOverlay,
-  Select,
   Skeleton,
   Stack,
   Tab,
@@ -42,26 +25,26 @@ import {
   Th,
   Td,
   Text,
-  Textarea,
   Badge,
-  useToast,
-  useDisclosure,
   HStack,
+  Image,
+  Avatar,
 } from "@chakra-ui/react"
-import {
-  Search,
-  PlusCircle,
-  Edit,
-  Trash2,
-  AlertTriangle,
-  MoreHorizontal,
-  Eye,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react"
+import { Search, ChevronLeft, ChevronRight } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import api from "@/lib/api"
-import { useRouter } from "next/navigation"
+
+type Creator = {
+  id: number
+  name: string
+  username: string
+  email: string
+  role: string | null
+  profile_image: string | null
+  cloudinary_public_id: string | null
+  created_at: string
+  updated_at: string
+}
 
 type Drug = {
   id: number
@@ -69,11 +52,14 @@ type Drug = {
   brand: string
   description: string
   category: string
-  price: string // Changed from number to string to match API response
+  price: number
   stock: number
   dosage: string
+  image: string | null
+  prescription_needed: boolean
   expires_at: string
-  created_at?: string // Optional since it's not in the API response
+  creator: Creator
+  username: string
 }
 
 type Meta = {
@@ -83,6 +69,8 @@ type Meta = {
   per_page: number
   to: number
   total: number
+  total_stock?: number
+  low_stock_count?: number
 }
 
 type Links = {
@@ -93,6 +81,8 @@ type Links = {
 }
 
 type DrugsResponse = {
+  status: string
+  message: string
   data: Drug[]
   meta: Meta
   links: Links
@@ -100,30 +90,12 @@ type DrugsResponse = {
 
 export default function DrugsPage() {
   const { token } = useAuth()
-  const toast = useToast()
+  const router = useRouter()
   const [drugs, setDrugs] = useState<Drug[]>([])
   const [filteredDrugs, setFilteredDrugs] = useState<Drug[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("all")
-  const { isOpen: isAddOpen, onOpen: onAddOpen, onClose: onAddClose } = useDisclosure()
-  const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure()
-  const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure()
-  const [selectedDrug, setSelectedDrug] = useState<Drug | null>(null)
-  const router = useRouter()
-
-  // Form state
-  const [formData, setFormData] = useState({
-    name: "",
-    brand: "",
-    description: "",
-    category: "",
-    price: "",
-    stock: "",
-    dosage: "",
-    expires_at: "",
-  })
-
   const [currentPage, setCurrentPage] = useState(1)
   const [meta, setMeta] = useState<Meta | null>(null)
   const [links, setLinks] = useState<Links | null>(null)
@@ -140,24 +112,21 @@ export default function DrugsPage() {
         setLinks(response.data.links)
       } catch (error) {
         console.error("Error fetching drugs:", error)
-        toast({
-          title: "Error",
-          description: "Failed to fetch drugs. Please try again later.",
-          status: "error",
-          duration: 3000,
-          isClosable: true,
-        })
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchDrugs()
-  }, [currentPage, token, toast])
+  }, [currentPage, token])
 
   useEffect(() => {
     // Filter drugs based on search term and active tab
-    let filtered = drugs
+    let filtered = [...drugs] // Create a new array to avoid reference issues
+
+    console.log("Current tab:", activeTab)
+    console.log("Total drugs before filtering:", drugs.length)
+    console.log("Stock values:", drugs.map((d) => `${d.name}: ${d.stock}`).join(", "))
 
     // Apply search filter
     if (searchTerm) {
@@ -171,7 +140,23 @@ export default function DrugsPage() {
 
     // Apply tab filter
     if (activeTab === "low-stock") {
-      filtered = filtered.filter((drug) => drug.stock <= 5)
+      // Debug the stock values to ensure they're numbers
+      console.log(
+        "Stock values (before filtering):",
+        filtered.map((d) => `${d.name}: ${typeof d.stock} ${d.stock}`),
+      )
+
+      // Use a more explicit approach to filtering low stock
+      filtered = filtered.filter((drug) => {
+        const stockNum = Number.parseInt(String(drug.stock), 10)
+        const isLowStock = stockNum <= 10 // Increased threshold to catch more items
+        console.log(`Drug ${drug.name} stock: ${stockNum}, isLowStock: ${isLowStock}`)
+        return isLowStock
+      })
+
+      console.log("Low stock drugs after filtering:", filtered.length)
+    } else if (activeTab === "prescription") {
+      filtered = filtered.filter((drug) => drug.prescription_needed)
     } else if (activeTab === "expiring-soon") {
       // Filter drugs expiring in the next 3 months
       const threeMonthsFromNow = new Date()
@@ -183,26 +168,9 @@ export default function DrugsPage() {
       })
     }
 
+    console.log("Filtered drugs count:", filtered.length)
     setFilteredDrugs(filtered)
   }, [searchTerm, activeTab, drugs])
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      brand: "",
-      description: "",
-      category: "",
-      price: "",
-      stock: "",
-      dosage: "",
-      expires_at: "",
-    })
-  }
 
   const handleNextPage = () => {
     if (meta && currentPage < meta.last_page) {
@@ -216,155 +184,39 @@ export default function DrugsPage() {
     }
   }
 
-  const handleAddDrug = async () => {
-    try {
-      const drugData = {
-        name: formData.name,
-        brand: formData.brand,
-        description: formData.description,
-        category: formData.category,
-        price: formData.price,
-        stock: Number.parseInt(formData.stock),
-        dosage: formData.dosage,
-        expires_at: formData.expires_at,
-      }
+  // Helper function to handle null values
+  const formatValue = (value: string | number | null | undefined): string => {
+    if (value === null || value === undefined || value === "") return "-"
+    return String(value)
+  }
 
-      const response = await api.post("/drugs", drugData)
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return "-"
 
-      // Add the new drug to the list
-      setDrugs([...drugs, response.data.data])
-      onAddClose()
-      resetForm()
-
-      toast({
-        title: "Drug added",
-        description: `${drugData.name} has been added successfully`,
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-      })
-
-      // Refresh drugs list to ensure we have the latest data
-      setCurrentPage(1)
-    } catch (error) {
-      console.error("Error adding drug:", error)
-      toast({
-        title: "Error",
-        description: "Failed to add drug. Please try again.",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      })
+    const options: Intl.DateTimeFormatOptions = {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     }
+    return new Date(dateString).toLocaleDateString(undefined, options)
   }
 
-  const handleEditDrug = async () => {
-    if (!selectedDrug) return
+  const formatCurrency = (amount: number | null | undefined) => {
+    if (amount === null || amount === undefined) return "-"
 
-    try {
-      const drugData = {
-        name: formData.name,
-        brand: formData.brand,
-        description: formData.description,
-        category: formData.category,
-        price: formData.price,
-        stock: Number.parseInt(formData.stock),
-        dosage: formData.dosage,
-        expires_at: formData.expires_at,
-      }
-
-      await api.put(`/drugs/${selectedDrug.id}`, drugData)
-
-      // Update the drug in the list
-      const updatedDrugs = drugs.map((drug) =>
-        drug.id === selectedDrug.id
-          ? {
-              ...drug,
-              ...drugData,
-            }
-          : drug,
-      )
-
-      setDrugs(updatedDrugs)
-      setFilteredDrugs(updatedDrugs)
-      onEditClose()
-      setSelectedDrug(null)
-      resetForm()
-
-      toast({
-        title: "Drug updated",
-        description: `${formData.name} has been updated successfully`,
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-      })
-    } catch (error) {
-      console.error("Error updating drug:", error)
-      toast({
-        title: "Error",
-        description: "Failed to update drug. Please try again.",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      })
-    }
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "ETB",
+    }).format(amount)
   }
 
-  const handleDeleteDrug = async () => {
-    if (!selectedDrug) return
-
-    try {
-      await api.delete(`/drugs/${selectedDrug.id}`)
-
-      // Remove the drug from the list
-      const updatedDrugs = drugs.filter((drug) => drug.id !== selectedDrug.id)
-      setDrugs(updatedDrugs)
-      setFilteredDrugs(updatedDrugs)
-      onDeleteClose()
-      setSelectedDrug(null)
-
-      toast({
-        title: "Drug deleted",
-        description: `${selectedDrug.name} has been deleted successfully`,
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      })
-
-      // If we deleted the last item on the current page, go to the previous page
-      if (updatedDrugs.length === 0 && currentPage > 1) {
-        setCurrentPage(currentPage - 1)
-      }
-    } catch (error) {
-      console.error("Error deleting drug:", error)
-      toast({
-        title: "Error",
-        description: "Failed to delete drug. Please try again.",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      })
-    }
-  }
-
-  const openEditModal = (drug: Drug) => {
-    setSelectedDrug(drug)
-    setFormData({
-      name: drug.name,
-      brand: drug.brand,
-      description: drug.description,
-      category: drug.category,
-      price: drug.price.toString(),
-      stock: drug.stock.toString(),
-      dosage: drug.dosage,
-      expires_at: drug.expires_at,
-    })
-    onEditOpen()
-  }
-
-  const openDeleteModal = (drug: Drug) => {
-    setSelectedDrug(drug)
-    onDeleteOpen()
+  const getStockStatusColor = (stock: number | string) => {
+    // Ensure we're working with a number
+    const stockNum = Number.parseInt(String(stock), 10)
+    console.log(`Stock color for ${stockNum}: ${stockNum <= 10 ? "red" : stockNum <= 20 ? "yellow" : "green"}`)
+    if (stockNum <= 10) return "red"
+    if (stockNum <= 20) return "yellow"
+    return "green"
   }
 
   if (isLoading) {
@@ -382,13 +234,38 @@ export default function DrugsPage() {
         >
           <Box>
             <Heading as="h1" size="lg" mb={1}>
-              Drugs
+              Drugs {activeTab !== "all" && `(${activeTab})`}
             </Heading>
-            <Text color="gray.600">Manage medications and inventory</Text>
+            <Text color="gray.600">View medications and inventory</Text>
           </Box>
-          <Button leftIcon={<PlusCircle size={16} />} colorScheme="blue" onClick={onAddOpen}>
-            Add New Drug
-          </Button>
+          {meta && (
+            <HStack spacing={4}>
+              <Flex direction="column" align="center" bg="blue.50" p={3} borderRadius="md" minW="120px">
+                <Text fontSize="sm" color="blue.600">
+                  Total Drugs
+                </Text>
+                <Text fontWeight="bold" fontSize="xl">
+                  {meta.total}
+                </Text>
+              </Flex>
+              <Flex direction="column" align="center" bg="green.50" p={3} borderRadius="md" minW="120px">
+                <Text fontSize="sm" color="green.600">
+                  Total Stock
+                </Text>
+                <Text fontWeight="bold" fontSize="xl">
+                  {meta.total_stock || "-"}
+                </Text>
+              </Flex>
+              <Flex direction="column" align="center" bg="red.50" p={3} borderRadius="md" minW="120px">
+                <Text fontSize="sm" color="red.600">
+                  Low Stock
+                </Text>
+                <Text fontWeight="bold" fontSize="xl">
+                  {meta.low_stock_count || 0}
+                </Text>
+              </Flex>
+            </HStack>
+          )}
         </Flex>
 
         <Card>
@@ -416,14 +293,19 @@ export default function DrugsPage() {
                 variant="soft-rounded"
                 colorScheme="blue"
                 w={{ base: "full", sm: "auto" }}
+                defaultIndex={0}
+                index={["all", "low-stock", "prescription", "expiring-soon"].indexOf(activeTab)}
                 onChange={(index) => {
-                  const tabValues = ["all", "low-stock", "expiring-soon"]
-                  setActiveTab(tabValues[index])
+                  const tabValues = ["all", "low-stock", "prescription", "expiring-soon"]
+                  const newTab = tabValues[index]
+                  console.log("Tab changed to:", newTab)
+                  setActiveTab(newTab)
                 }}
               >
                 <TabList>
                   <Tab>All Drugs</Tab>
                   <Tab>Low Stock</Tab>
+                  <Tab>Prescription</Tab>
                   <Tab>Expiring Soon</Tab>
                 </TabList>
               </Tabs>
@@ -434,66 +316,70 @@ export default function DrugsPage() {
               <Table variant="simple" size="sm">
                 <Thead>
                   <Tr>
-                    <Th>Name</Th>
+                    <Th>Drug</Th>
                     <Th>Brand</Th>
                     <Th>Category</Th>
                     <Th>Dosage</Th>
                     <Th isNumeric>Price</Th>
                     <Th isNumeric>Stock</Th>
                     <Th>Expires</Th>
-                    <Th isNumeric>Actions</Th>
+                    <Th>Prescription</Th>
+                    <Th>Added By</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
                   {filteredDrugs.length === 0 ? (
                     <Tr>
-                      <Td colSpan={8} textAlign="center" py={6} color="gray.500">
+                      <Td colSpan={9} textAlign="center" py={6} color="gray.500">
                         No drugs found
                       </Td>
                     </Tr>
                   ) : (
                     filteredDrugs.map((drug) => (
-                      <Tr key={drug.id}>
-                        <Td>{drug.name}</Td>
-                        <Td>{drug.brand}</Td>
-                        <Td>{drug.category}</Td>
-                        <Td>{drug.dosage}</Td>
-                        <Td isNumeric>${Number.parseFloat(drug.price).toFixed(2)}</Td>
-                        <Td isNumeric>
-                          <Badge colorScheme={drug.stock <= 5 ? "red" : drug.stock <= 20 ? "yellow" : "green"}>
-                            {drug.stock}
-                          </Badge>
-                        </Td>
-                        <Td>{drug.expires_at}</Td>
-                        <Td isNumeric>
-                          <Menu>
-                            <MenuButton
-                              as={IconButton}
-                              aria-label="Options"
-                              icon={<MoreHorizontal size={16} />}
-                              variant="ghost"
-                              size="sm"
+                      <Tr
+                        key={drug.id}
+                        _hover={{ bg: "gray.50", cursor: "pointer" }}
+                        onClick={() => router.push(`/dashboard/drugs/${drug.id}`)}
+                      >
+                        <Td>
+                          <Flex align="center">
+                            <Image
+                              src={drug.image || "/placeholder.svg"}
+                              alt={drug.name}
+                              boxSize="32px"
+                              borderRadius="md"
+                              mr={2}
+                              objectFit="cover"
+                              fallbackSrc="/placeholder.svg"
                             />
-                            <MenuList>
-                              <MenuItem
-                                icon={<Eye size={16} />}
-                                onClick={() => router.push(`/dashboard/drugs/${drug.id}`)}
-                              >
-                                View Details
-                              </MenuItem>
-                              <MenuItem icon={<Edit size={16} />} onClick={() => openEditModal(drug)}>
-                                Edit
-                              </MenuItem>
-                              <MenuDivider />
-                              <MenuItem
-                                icon={<Trash2 size={16} />}
-                                color="red.500"
-                                onClick={() => openDeleteModal(drug)}
-                              >
-                                Delete
-                              </MenuItem>
-                            </MenuList>
-                          </Menu>
+                            <Text fontWeight="medium">{formatValue(drug.name)}</Text>
+                          </Flex>
+                        </Td>
+                        <Td>{formatValue(drug.brand)}</Td>
+                        <Td>{formatValue(drug.category)}</Td>
+                        <Td>{formatValue(drug.dosage)}</Td>
+                        <Td isNumeric>{formatCurrency(drug.price)}</Td>
+                        <Td isNumeric>
+                          <Badge colorScheme={getStockStatusColor(drug.stock)}>{formatValue(drug.stock)}</Badge>
+                        </Td>
+                        <Td>{formatDate(drug.expires_at)}</Td>
+                        <Td>
+                          {drug.prescription_needed ? (
+                            <Badge colorScheme="red">Required</Badge>
+                          ) : (
+                            <Badge colorScheme="green">Not Required</Badge>
+                          )}
+                        </Td>
+                        <Td>
+                          <Flex align="center">
+                            <Avatar
+                              size="xs"
+                              name={drug.creator?.name}
+                              src={drug.creator?.profile_image || undefined}
+                              mr={2}
+                            />
+                            <Text fontSize="xs">{formatValue(drug.creator?.name)}</Text>
+                          </Flex>
                         </Td>
                       </Tr>
                     ))
@@ -532,242 +418,6 @@ export default function DrugsPage() {
           </CardBody>
         </Card>
       </Stack>
-
-      {/* Add Drug Modal */}
-      <Modal isOpen={isAddOpen} onClose={onAddClose} size="xl">
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Add New Drug</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <Stack spacing={4}>
-              <Flex gap={4}>
-                <FormControl flex="1">
-                  <FormLabel>Drug Name</FormLabel>
-                  <Input
-                    name="name"
-                    placeholder="e.g., Amoxicillin"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </FormControl>
-                <FormControl flex="1">
-                  <FormLabel>Brand</FormLabel>
-                  <Input
-                    name="brand"
-                    placeholder="e.g., Amoxil"
-                    value={formData.brand}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </FormControl>
-              </Flex>
-              <FormControl>
-                <FormLabel>Description</FormLabel>
-                <Textarea
-                  name="description"
-                  placeholder="Brief description of the drug"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  required
-                />
-              </FormControl>
-              <Flex gap={4}>
-                <FormControl flex="1">
-                  <FormLabel>Category</FormLabel>
-                  <Select
-                    name="category"
-                    placeholder="Select category"
-                    value={formData.category}
-                    onChange={handleInputChange}
-                  >
-                    <option value="Antibiotic">Antibiotic</option>
-                    <option value="Blood Pressure">Blood Pressure</option>
-                    <option value="Diabetes">Diabetes</option>
-                    <option value="Cholesterol">Cholesterol</option>
-                    <option value="Respiratory">Respiratory</option>
-                    <option value="Mental Health">Mental Health</option>
-                    <option value="Pain Relief">Pain Relief</option>
-                    <option value="Other">Other</option>
-                  </Select>
-                </FormControl>
-                <FormControl flex="1">
-                  <FormLabel>Dosage</FormLabel>
-                  <Input
-                    name="dosage"
-                    placeholder="e.g., 500mg"
-                    value={formData.dosage}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </FormControl>
-              </Flex>
-              <Flex gap={4}>
-                <FormControl flex="1">
-                  <FormLabel>Price ($)</FormLabel>
-                  <Input
-                    name="price"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={formData.price}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </FormControl>
-                <FormControl flex="1">
-                  <FormLabel>Stock</FormLabel>
-                  <Input
-                    name="stock"
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    value={formData.stock}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </FormControl>
-                <FormControl flex="1">
-                  <FormLabel>Expiry Date</FormLabel>
-                  <Input
-                    name="expires_at"
-                    type="date"
-                    value={formData.expires_at}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </FormControl>
-              </Flex>
-            </Stack>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onAddClose}>
-              Cancel
-            </Button>
-            <Button
-              colorScheme="blue"
-              onClick={handleAddDrug}
-              isDisabled={!formData.name || !formData.price || !formData.stock}
-            >
-              Add Drug
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
-      {/* Edit Drug Modal */}
-      <Modal isOpen={isEditOpen} onClose={onEditClose} size="xl">
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Edit Drug</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <Stack spacing={4}>
-              <Flex gap={4}>
-                <FormControl flex="1">
-                  <FormLabel>Drug Name</FormLabel>
-                  <Input name="name" value={formData.name} onChange={handleInputChange} required />
-                </FormControl>
-                <FormControl flex="1">
-                  <FormLabel>Brand</FormLabel>
-                  <Input name="brand" value={formData.brand} onChange={handleInputChange} required />
-                </FormControl>
-              </Flex>
-              <FormControl>
-                <FormLabel>Description</FormLabel>
-                <Textarea name="description" value={formData.description} onChange={handleInputChange} required />
-              </FormControl>
-              <Flex gap={4}>
-                <FormControl flex="1">
-                  <FormLabel>Category</FormLabel>
-                  <Select name="category" value={formData.category} onChange={handleInputChange}>
-                    <option value="Antibiotic">Antibiotic</option>
-                    <option value="Blood Pressure">Blood Pressure</option>
-                    <option value="Diabetes">Diabetes</option>
-                    <option value="Cholesterol">Cholesterol</option>
-                    <option value="Respiratory">Respiratory</option>
-                    <option value="Mental Health">Mental Health</option>
-                    <option value="Pain Relief">Pain Relief</option>
-                    <option value="Other">Other</option>
-                  </Select>
-                </FormControl>
-                <FormControl flex="1">
-                  <FormLabel>Dosage</FormLabel>
-                  <Input name="dosage" value={formData.dosage} onChange={handleInputChange} required />
-                </FormControl>
-              </Flex>
-              <Flex gap={4}>
-                <FormControl flex="1">
-                  <FormLabel>Price ($)</FormLabel>
-                  <Input
-                    name="price"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.price}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </FormControl>
-                <FormControl flex="1">
-                  <FormLabel>Stock</FormLabel>
-                  <Input
-                    name="stock"
-                    type="number"
-                    min="0"
-                    value={formData.stock}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </FormControl>
-                <FormControl flex="1">
-                  <FormLabel>Expiry Date</FormLabel>
-                  <Input
-                    name="expires_at"
-                    type="date"
-                    value={formData.expires_at}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </FormControl>
-              </Flex>
-            </Stack>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onEditClose}>
-              Cancel
-            </Button>
-            <Button colorScheme="blue" onClick={handleEditDrug}>
-              Update Drug
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
-      {/* Delete Drug Modal */}
-      <Modal isOpen={isDeleteOpen} onClose={onDeleteClose}>
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Confirm Deletion</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <Flex direction="column" align="center" py={4}>
-              <AlertTriangle size={48} color="#ef4444" />
-              <Text mt={4}>Are you sure you want to delete {selectedDrug?.name}? This action cannot be undone.</Text>
-            </Flex>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onDeleteClose}>
-              Cancel
-            </Button>
-            <Button colorScheme="red" onClick={handleDeleteDrug}>
-              Delete
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
     </Box>
   )
 }
@@ -785,7 +435,11 @@ function DrugsSkeleton() {
           <Skeleton height="32px" width="100px" />
           <Skeleton height="18px" width="250px" mt={2} />
         </Box>
-        <Skeleton height="40px" width="150px" />
+        <HStack spacing={4}>
+          <Skeleton height="70px" width="120px" />
+          <Skeleton height="70px" width="120px" />
+          <Skeleton height="70px" width="120px" />
+        </HStack>
       </Flex>
 
       <Card>
@@ -805,11 +459,13 @@ function DrugsSkeleton() {
             <Table variant="simple" size="sm">
               <Thead>
                 <Tr>
-                  {["Name", "Brand", "Category", "Dosage", "Price", "Stock", "Expires", "Actions"].map((header) => (
-                    <Th key={header}>
-                      <Skeleton height="14px" width="80%" />
-                    </Th>
-                  ))}
+                  {["Drug", "Brand", "Category", "Dosage", "Price", "Stock", "Expires", "Prescription", "Added By"].map(
+                    (header) => (
+                      <Th key={header}>
+                        <Skeleton height="14px" width="80%" />
+                      </Th>
+                    ),
+                  )}
                 </Tr>
               </Thead>
               <Tbody>
@@ -818,7 +474,10 @@ function DrugsSkeleton() {
                   .map((_, i) => (
                     <Tr key={i}>
                       <Td>
-                        <Skeleton height="16px" width="120px" />
+                        <Flex align="center">
+                          <Skeleton height="32px" width="32px" borderRadius="md" mr={2} />
+                          <Skeleton height="16px" width="120px" />
+                        </Flex>
                       </Td>
                       <Td>
                         <Skeleton height="16px" width="100px" />
@@ -838,9 +497,13 @@ function DrugsSkeleton() {
                       <Td>
                         <Skeleton height="16px" width="80px" />
                       </Td>
-                      <Td isNumeric>
-                        <Flex justify="flex-end">
-                          <Skeleton height="24px" width="32px" />
+                      <Td>
+                        <Skeleton height="20px" width="80px" borderRadius="full" />
+                      </Td>
+                      <Td>
+                        <Flex align="center">
+                          <Skeleton height="24px" width="24px" borderRadius="full" mr={2} />
+                          <Skeleton height="16px" width="80px" />
                         </Flex>
                       </Td>
                     </Tr>

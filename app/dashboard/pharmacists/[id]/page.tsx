@@ -21,27 +21,37 @@ import {
   Divider,
   useToast,
   IconButton,
+  Avatar,
 } from "@chakra-ui/react"
-import { FiArrowLeft, FiMail, FiPhone, FiMapPin, FiCalendar, FiCheckCircle, FiXCircle } from "react-icons/fi"
+import { FiArrowLeft, FiMail, FiPhone, FiMapPin, FiCalendar, FiCheckCircle, FiXCircle, FiUser } from "react-icons/fi"
 import { useAuth } from "@/contexts/auth-context"
 import api from "@/lib/api"
 
 type Pharmacist = {
   id: number
   name: string
+  username: string
   email: string
+  profile_image: string | null
+  cloudinary_public_id: string | null
   is_role: number
-  google_id: string | null
   phone: string | null
   address: string | null
-  lat: string | null
-  lng: string | null
+  lat: number | null
+  lng: number | null
   status: "pending" | "approved" | "rejected"
+  pharmacy_name: string | null
+  created_at: string | null
+  updated_at: string | null
   license_image: string | null
-  pharmacy_name: string
-  email_verified_at: string | null
-  created_at: string
-  updated_at: string
+  tin_image: string | null
+  account_number: string | null
+  bank_name: string | null
+}
+
+type PharmacistResponse = {
+  status: string
+  data: Pharmacist
 }
 
 export default function PharmacistDetailPage() {
@@ -56,22 +66,18 @@ export default function PharmacistDetailPage() {
     const fetchPharmacistDetails = async () => {
       setIsLoading(true)
       try {
-        // Fetch pharmacist details
-        const response = await api.get(`/admin/pharmacists/${id}`)
+        // Fetch pharmacist details using the new endpoint
+        const response = await api.get<PharmacistResponse>(
+          `https://e-pharmacybackend-production.up.railway.app/api/pharmacists/${id}`,
+        )
 
         console.log("Pharmacist details response:", response.data)
 
-        // Extract pharmacist data based on API response structure
-        let pharmacistData = null
-        if (response.data.data) {
-          pharmacistData = response.data.data
-        } else if (response.data.pharmacist) {
-          pharmacistData = response.data.pharmacist
+        if (response.data.status === "success" && response.data.data) {
+          setPharmacist(response.data.data)
         } else {
-          pharmacistData = response.data
+          throw new Error("Failed to fetch pharmacist details")
         }
-
-        setPharmacist(pharmacistData)
       } catch (error) {
         console.error("Error fetching pharmacist details:", error)
         toast({
@@ -182,8 +188,11 @@ export default function PharmacistDetailPage() {
   }
 
   // Helper function to handle null values
-  const formatValue = (value: string | null | undefined): string => {
-    return value ? value : "-"
+  const formatValue = (value: string | number | null | undefined): string => {
+    if (value === null || value === undefined || value === "") {
+      return "-"
+    }
+    return String(value)
   }
 
   const formatDate = (dateString: string | null) => {
@@ -197,14 +206,9 @@ export default function PharmacistDetailPage() {
     return new Date(dateString).toLocaleDateString(undefined, options)
   }
 
-  const getLicenseImageUrl = (imagePath: string | null) => {
-    if (!imagePath) return "https://via.placeholder.com/800x600.png?text=No+License+Image"
-
-    // If the image path is a full URL, return it
-    if (imagePath.startsWith("http")) return imagePath
-
-    // Otherwise, construct the URL to the backend
-    return `https://epharmacy-backend-production.up.railway.app/storage/${imagePath}`
+  const getImageUrl = (imagePath: string | null) => {
+    if (!imagePath) return "https://via.placeholder.com/800x600.png?text=No+Image"
+    return imagePath
   }
 
   const getStatusBadgeColor = (status: string) => {
@@ -247,15 +251,21 @@ export default function PharmacistDetailPage() {
       <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6}>
         <Card>
           <CardHeader>
-            <Heading size="md">Personal Information</Heading>
+            <Flex align="center" gap={4}>
+              <Avatar
+                size="lg"
+                name={pharmacist.name}
+                src={pharmacist.profile_image || undefined}
+                icon={<FiUser size={24} />}
+              />
+              <Box>
+                <Heading size="md">{pharmacist.name}</Heading>
+                <Text color="gray.600">@{pharmacist.username}</Text>
+              </Box>
+            </Flex>
           </CardHeader>
           <CardBody>
             <VStack spacing={4} align="start">
-              <HStack w="full" justify="space-between">
-                <Text fontWeight="bold">Name:</Text>
-                <Text>{formatValue(pharmacist.name)}</Text>
-              </HStack>
-
               <HStack w="full" justify="space-between">
                 <Text fontWeight="bold">Email:</Text>
                 <Flex align="center">
@@ -294,8 +304,17 @@ export default function PharmacistDetailPage() {
                 <Text fontWeight="bold">Address:</Text>
                 <Flex align="center">
                   <Text>{formatValue(pharmacist.address)}</Text>
-                  {pharmacist.address && (
-                    <IconButton aria-label="View on map" icon={<FiMapPin />} variant="ghost" size="sm" ml={2} />
+                  {pharmacist.address && pharmacist.lat && pharmacist.lng && (
+                    <IconButton
+                      aria-label="View on map"
+                      icon={<FiMapPin />}
+                      variant="ghost"
+                      size="sm"
+                      ml={2}
+                      onClick={() =>
+                        window.open(`https://maps.google.com/?q=${pharmacist.lat},${pharmacist.lng}`, "_blank")
+                      }
+                    />
                   )}
                 </Flex>
               </HStack>
@@ -303,6 +322,16 @@ export default function PharmacistDetailPage() {
               <HStack w="full" justify="space-between">
                 <Text fontWeight="bold">Pharmacy Name:</Text>
                 <Text>{formatValue(pharmacist.pharmacy_name)}</Text>
+              </HStack>
+
+              <HStack w="full" justify="space-between">
+                <Text fontWeight="bold">Bank Information:</Text>
+                <Box textAlign="right">
+                  <Text>{formatValue(pharmacist.bank_name)}</Text>
+                  <Text fontSize="sm" color="gray.600">
+                    Acc: {formatValue(pharmacist.account_number)}
+                  </Text>
+                </Box>
               </HStack>
 
               <HStack w="full" justify="space-between">
@@ -321,10 +350,8 @@ export default function PharmacistDetailPage() {
               </HStack>
 
               <HStack w="full" justify="space-between">
-                <Text fontWeight="bold">Email Verified:</Text>
-                <Badge colorScheme={pharmacist.email_verified_at ? "green" : "red"}>
-                  {pharmacist.email_verified_at ? "Yes" : "No"}
-                </Badge>
+                <Text fontWeight="bold">Last Updated:</Text>
+                <Text>{formatDate(pharmacist.updated_at)}</Text>
               </HStack>
             </VStack>
 
@@ -353,29 +380,51 @@ export default function PharmacistDetailPage() {
           </CardBody>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <Heading size="md">License Image</Heading>
-          </CardHeader>
-          <CardBody>
-            {pharmacist.license_image ? (
-              <Box borderRadius="md" overflow="hidden">
-                <Image
-                  src={getLicenseImageUrl(pharmacist.license_image) || "/placeholder.svg"}
-                  alt="License"
-                  w="full"
-                  maxH="500px"
-                  objectFit="contain"
-                  fallbackSrc="https://via.placeholder.com/800x600.png?text=License+Image+Not+Available"
-                />
-              </Box>
-            ) : (
-              <Flex direction="column" align="center" justify="center" h="300px" bg="gray.100" borderRadius="md">
-                <Text color="gray.500">No license image available</Text>
-              </Flex>
-            )}
-          </CardBody>
-        </Card>
+        <Stack spacing={6}>
+          <Card>
+            <CardHeader>
+              <Heading size="md">License Image</Heading>
+            </CardHeader>
+            <CardBody>
+              {pharmacist.license_image ? (
+                <Box borderRadius="md" overflow="hidden">
+                  <Image
+                    src={getImageUrl(pharmacist.license_image) || "/placeholder.svg"}
+                    alt="License"
+                    w="full"
+                    maxH="300px"
+                    objectFit="contain"
+                    fallbackSrc="https://via.placeholder.com/800x600.png?text=License+Image+Not+Available"
+                  />
+                </Box>
+              ) : (
+                <Flex direction="column" align="center" justify="center" h="200px" bg="gray.100" borderRadius="md">
+                  <Text color="gray.500">No license image available</Text>
+                </Flex>
+              )}
+            </CardBody>
+          </Card>
+
+          {pharmacist.tin_image && (
+            <Card>
+              <CardHeader>
+                <Heading size="md">TIN Document</Heading>
+              </CardHeader>
+              <CardBody>
+                <Box borderRadius="md" overflow="hidden">
+                  <Image
+                    src={getImageUrl(pharmacist.tin_image) || "/placeholder.svg"}
+                    alt="TIN Document"
+                    w="full"
+                    maxH="300px"
+                    objectFit="contain"
+                    fallbackSrc="https://via.placeholder.com/800x600.png?text=TIN+Document+Not+Available"
+                  />
+                </Box>
+              </CardBody>
+            </Card>
+          )}
+        </Stack>
       </SimpleGrid>
     </Box>
   )
@@ -392,7 +441,13 @@ function PharmacistDetailSkeleton() {
       <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6}>
         <Card>
           <CardHeader>
-            <Skeleton height="24px" width="200px" />
+            <Flex align="center" gap={4}>
+              <Skeleton height="80px" width="80px" borderRadius="full" />
+              <Box>
+                <Skeleton height="24px" width="200px" mb={2} />
+                <Skeleton height="16px" width="120px" />
+              </Box>
+            </Flex>
           </CardHeader>
           <CardBody>
             <Stack spacing={4}>

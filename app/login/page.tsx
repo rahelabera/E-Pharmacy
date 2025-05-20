@@ -125,7 +125,7 @@ export default function LoginPage() {
         <CardHeader bg="blue.500" color="white" borderTopRadius="lg" textAlign="center" pb={6}>
           <Center mb={4}>
             <Box bg="white" p={2} borderRadius="lg">
-              <Logo size="large" showText={false} />
+              <img src="/favicon.ico" alt="Logo" style={{ height: 60, width: 60, objectFit: "contain" }} />
             </Box>
           </Center>
           <Heading size="lg" color="white">

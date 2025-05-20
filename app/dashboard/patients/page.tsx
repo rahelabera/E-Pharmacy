@@ -8,14 +8,9 @@ import {
   CardHeader,
   Flex,
   Heading,
-  IconButton,
   Input,
   InputGroup,
   InputLeftElement,
-  Menu,
-  MenuButton,
-  MenuItem,
-  MenuList,
   Skeleton,
   Stack,
   Table,
@@ -30,42 +25,118 @@ import {
   HStack,
   Badge,
   Select,
+  Button,
 } from "@chakra-ui/react"
-import { Search, Eye, MoreHorizontal, Mail, Phone, MapPin } from "lucide-react"
+import { Search, MapPin, ChevronLeft, ChevronRight } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import api from "@/lib/api"
+import { useRouter } from "next/navigation"
 
 type Patient = {
   id: number
   name: string
+  username: string
   email: string
+  is_role: number
   phone: string | null
   address: string | null
+  lat: number | null
+  lng: number | null
   status: string
-  created_at: string
-  updated_at: string
+  status_reason: string | null
+  status_updated_at: string | null
+  pharmacy_name: string | null
+  email_verified_at: string | null
+  created_at: string | null
+  updated_at: string | null
+  license_image: string | null
+  tin_image: string | null
+  tin_number: string | null
+  account_number: string | null
+  bank_name: string | null
+  license_public_id: string | null
+  tin_public_id: string | null
+  google_id: string | null
+}
+
+type PatientsResponse = {
+  status: string
+  message: string
+  data: {
+    current_page: number
+    data: Patient[]
+    first_page_url: string
+    from: number
+    last_page: number
+    last_page_url: string
+    links: {
+      url: string | null
+      label: string
+      active: boolean
+    }[]
+    next_page_url: string | null
+    path: string
+    per_page: number
+    prev_page_url: string | null
+    to: number
+    total: number
+  }
+  meta: {
+    current_page: number
+    from: number
+    last_page: number
+    per_page: number
+    to: number
+    total: number
+    active_count: number
+    inactive_count: number
+  }
+  links: {
+    first: string
+    last: string
+    prev: string | null
+    next: string | null
+  }
 }
 
 export default function PatientsPage() {
   const { token } = useAuth()
   const toast = useToast()
+  const router = useRouter()
   const [patients, setPatients] = useState<Patient[]>([])
   const [filteredPatients, setFilteredPatients] = useState<Patient[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [isLoading, setIsLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    from: 0,
+    to: 0,
+  })
 
   useEffect(() => {
     // Fetch patients from the API
     const fetchPatients = async () => {
       setIsLoading(true)
       try {
-        const response = await api.get("https://e-pharmacybackend-production.up.railway.app/api/admin/patients")
+        const response = await api.get<PatientsResponse>(`/admin/patients?page=${currentPage}`)
 
         if (response.data.status === "success") {
-          const patientsData = response.data.patients || []
+          const patientsData = response.data.data.data || []
           setPatients(patientsData)
           setFilteredPatients(patientsData)
+
+          // Set pagination data
+          setPagination({
+            currentPage: response.data.data.current_page,
+            totalPages: response.data.data.last_page,
+            totalItems: response.data.data.total,
+            from: response.data.data.from,
+            to: response.data.data.to,
+          })
         } else {
           throw new Error("Failed to fetch patients")
         }
@@ -84,7 +155,7 @@ export default function PatientsPage() {
     }
 
     fetchPatients()
-  }, [token, toast])
+  }, [token, toast, currentPage])
 
   useEffect(() => {
     // Filter patients based on search term and status
@@ -94,8 +165,8 @@ export default function PatientsPage() {
     if (searchTerm) {
       filtered = filtered.filter(
         (patient) =>
-          patient.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          patient.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (patient.name && patient.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (patient.email && patient.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
           (patient.phone && patient.phone.includes(searchTerm)) ||
           (patient.address && patient.address.toLowerCase().includes(searchTerm.toLowerCase())),
       )
@@ -109,21 +180,23 @@ export default function PatientsPage() {
     setFilteredPatients(filtered)
   }, [searchTerm, statusFilter, patients])
 
-  const formatDate = (dateString: string) => {
+  // Helper function to handle null values
+  const formatValue = (value: string | number | null | undefined): string => {
+    if (value === null || value === undefined || value === "") {
+      return "-"
+    }
+    return String(value)
+  }
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "-"
+
     const options: Intl.DateTimeFormatOptions = {
       year: "numeric",
       month: "short",
       day: "numeric",
     }
     return new Date(dateString).toLocaleDateString(undefined, options)
-  }
-
-  const handleContactPatient = (method: "email" | "phone", contact: string) => {
-    if (method === "email") {
-      window.location.href = `mailto:${contact}`
-    } else if (method === "phone") {
-      window.location.href = `tel:${contact}`
-    }
   }
 
   const getStatusColor = (status: string) => {
@@ -138,6 +211,18 @@ export default function PatientsPage() {
         return "red"
       default:
         return "gray"
+    }
+  }
+
+  const handleNextPage = () => {
+    if (currentPage < pagination.totalPages) {
+      setCurrentPage(currentPage + 1)
+    }
+  }
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1)
     }
   }
 
@@ -199,13 +284,12 @@ export default function PatientsPage() {
                     <Th>Location</Th>
                     <Th>Status</Th>
                     <Th>Registered</Th>
-                    <Th isNumeric>Actions</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
                   {filteredPatients.length === 0 ? (
                     <Tr>
-                      <Td colSpan={6} textAlign="center" py={6} color="gray.500">
+                      <Td colSpan={5} textAlign="center" py={6} color="gray.500">
                         No patients found
                       </Td>
                     </Tr>
@@ -216,7 +300,7 @@ export default function PatientsPage() {
                           <Flex align="center" gap={3}>
                             <Avatar size="sm" name={patient.name} bg="blue.100" color="blue.600" />
                             <Box>
-                              <Text fontWeight="medium">{patient.name}</Text>
+                              <Text fontWeight="medium">{formatValue(patient.name)}</Text>
                               <Text fontSize="sm" color="gray.500">
                                 ID: {patient.id}
                               </Text>
@@ -225,9 +309,9 @@ export default function PatientsPage() {
                         </Td>
                         <Td>
                           <Box>
-                            <Text fontSize="sm">{patient.email}</Text>
+                            <Text fontSize="sm">{formatValue(patient.email)}</Text>
                             <Text fontSize="sm" color="gray.500">
-                              {patient.phone || "No phone"}
+                              {formatValue(patient.phone)}
                             </Text>
                           </Box>
                         </Td>
@@ -238,7 +322,7 @@ export default function PatientsPage() {
                               <Text fontSize="sm">{patient.address}</Text>
                             </Flex>
                           ) : (
-                            "No address"
+                            "-"
                           )}
                         </Td>
                         <Td>
@@ -247,46 +331,42 @@ export default function PatientsPage() {
                           </Badge>
                         </Td>
                         <Td>{formatDate(patient.created_at)}</Td>
-                        <Td isNumeric>
-                          <HStack spacing={1} justify="flex-end">
-                            {patient.email && (
-                              <IconButton
-                                aria-label="Email patient"
-                                icon={<Mail size={16} />}
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleContactPatient("email", patient.email)}
-                              />
-                            )}
-                            {patient.phone && (
-                              <IconButton
-                                aria-label="Call patient"
-                                icon={<Phone size={16} />}
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleContactPatient("phone", patient.phone || "")}
-                              />
-                            )}
-                            <Menu>
-                              <MenuButton
-                                as={IconButton}
-                                aria-label="Options"
-                                icon={<MoreHorizontal size={16} />}
-                                variant="ghost"
-                                size="sm"
-                              />
-                              <MenuList>
-                                <MenuItem icon={<Eye size={16} />}>View Patient Details</MenuItem>
-                              </MenuList>
-                            </Menu>
-                          </HStack>
-                        </Td>
                       </Tr>
                     ))
                   )}
                 </Tbody>
               </Table>
             </Box>
+
+            {/* Pagination controls */}
+            {pagination.totalItems > 0 && (
+              <Flex justify="space-between" align="center" mt={4}>
+                <Text fontSize="sm">
+                  Showing {pagination.from} to {pagination.to} of {pagination.totalItems} patients
+                </Text>
+                <HStack>
+                  <Button
+                    size="sm"
+                    leftIcon={<ChevronLeft size={16} />}
+                    onClick={handlePrevPage}
+                    isDisabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <Text fontSize="sm">
+                    Page {pagination.currentPage} of {pagination.totalPages}
+                  </Text>
+                  <Button
+                    size="sm"
+                    rightIcon={<ChevronRight size={16} />}
+                    onClick={handleNextPage}
+                    isDisabled={currentPage === pagination.totalPages}
+                  >
+                    Next
+                  </Button>
+                </HStack>
+              </Flex>
+            )}
           </CardBody>
         </Card>
       </Stack>
@@ -319,7 +399,7 @@ function PatientsSkeleton() {
             <Table variant="simple" size="sm">
               <Thead>
                 <Tr>
-                  {["Patient", "Contact", "Location", "Status", "Registered", "Actions"].map((header) => (
+                  {["Patient", "Contact", "Location", "Status", "Registered"].map((header) => (
                     <Th key={header}>
                       <Skeleton height="14px" width="80%" />
                     </Th>
@@ -358,16 +438,19 @@ function PatientsSkeleton() {
                       <Td>
                         <Skeleton height="14px" width="80px" />
                       </Td>
-                      <Td isNumeric>
-                        <Flex justify="flex-end">
-                          <Skeleton height="24px" width="80px" />
-                        </Flex>
-                      </Td>
                     </Tr>
                   ))}
               </Tbody>
             </Table>
           </Box>
+          <Flex justify="space-between" align="center" mt={4}>
+            <Skeleton height="16px" width="200px" />
+            <Flex gap={2}>
+              <Skeleton height="32px" width="80px" />
+              <Skeleton height="16px" width="80px" />
+              <Skeleton height="32px" width="80px" />
+            </Flex>
+          </Flex>
         </CardBody>
       </Card>
     </Stack>

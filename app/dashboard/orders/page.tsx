@@ -9,15 +9,9 @@ import {
   CardHeader,
   Flex,
   Heading,
-  IconButton,
   Input,
   InputGroup,
   InputLeftElement,
-  Menu,
-  MenuButton,
-  MenuDivider,
-  MenuItem,
-  MenuList,
   Modal,
   ModalBody,
   ModalCloseButton,
@@ -41,38 +35,43 @@ import {
   useDisclosure,
   Grid,
   HStack,
+  Image,
 } from "@chakra-ui/react"
-import { Search, Eye, MoreHorizontal, CheckCircle, Truck, XCircle, ChevronLeft, ChevronRight } from "lucide-react"
+import { Search, Eye, ChevronLeft, ChevronRight } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import api from "@/lib/api"
 
-type OrderItem = {
+type OrderUser = {
+  id: number
   name: string
-  price: string
-  drug_id: number
-  quantity: number
-  subtotal: number
+  email: string
+  phone: string | null
+  address: string | null
+}
+
+type OrderDrug = {
+  id: number
+  name: string
+  price: number
 }
 
 type Order = {
   id: number
-  user_id: number
-  items: OrderItem[]
+  user: OrderUser
+  drug: OrderDrug
+  quantity: number
   total_amount: string
-  status: "pending" | "processing" | "shipped" | "delivered" | "cancelled"
+  status: "pending" | "processing" | "shipped" | "delivered" | "cancelled" | "paid"
+  prescription_image: string | null
   created_at: string
   updated_at: string
-  // Additional fields for UI display
-  customer?: {
-    id: number
-    name: string
-    email: string
-  }
 }
 
 type OrdersResponse = {
+  status: string
+  message: string
   data: Order[]
-  meta?: {
+  meta: {
     current_page: number
     from: number
     last_page: number
@@ -80,7 +79,7 @@ type OrdersResponse = {
     to: number
     total: number
   }
-  links?: {
+  links: {
     first: string
     last: string
     prev: string | null
@@ -99,7 +98,13 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const { isOpen: isViewOpen, onOpen: onViewOpen, onClose: onViewClose } = useDisclosure()
   const [currentPage, setCurrentPage] = useState(1)
-  const [meta, setMeta] = useState<OrdersResponse["meta"] | null>(null)
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    from: 0,
+    to: 0,
+  })
 
   useEffect(() => {
     // Fetch orders from the API
@@ -108,21 +113,20 @@ export default function OrdersPage() {
       try {
         const response = await api.get<OrdersResponse>(`/admin/orders?page=${currentPage}`)
 
-        // Process orders to add customer info (in a real app, this would come from the API)
-        const processedOrders = response.data.data.map((order) => ({
-          ...order,
-          customer: {
-            id: order.user_id,
-            name: `User ${order.user_id}`, // Placeholder - in a real app, you'd get this from the API
-            email: `user${order.user_id}@example.com`, // Placeholder
-          },
-        }))
+        if (response.data.status === "success") {
+          setOrders(response.data.data)
+          setFilteredOrders(response.data.data)
 
-        setOrders(processedOrders)
-        setFilteredOrders(processedOrders)
-
-        if (response.data.meta) {
-          setMeta(response.data.meta)
+          // Set pagination data
+          setPagination({
+            currentPage: response.data.meta.current_page,
+            totalPages: response.data.meta.last_page,
+            totalItems: response.data.meta.total,
+            from: response.data.meta.from,
+            to: response.data.meta.to,
+          })
+        } else {
+          throw new Error("Failed to fetch orders")
         }
       } catch (error) {
         console.error("Error fetching orders:", error)
@@ -150,9 +154,9 @@ export default function OrdersPage() {
       filtered = filtered.filter(
         (order) =>
           order.id.toString().includes(searchTerm) ||
-          (order.customer?.name && order.customer.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (order.customer?.email && order.customer.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          order.items.some((item) => item.name.toLowerCase().includes(searchTerm.toLowerCase())),
+          (order.user?.name && order.user.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (order.user?.email && order.user.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (order.drug?.name && order.drug.name.toLowerCase().includes(searchTerm.toLowerCase())),
       )
     }
 
@@ -164,42 +168,12 @@ export default function OrdersPage() {
     setFilteredOrders(filtered)
   }, [searchTerm, activeTab, orders])
 
-  const handleUpdateStatus = async (orderId: number, newStatus: Order["status"]) => {
-    try {
-      // In a real app, you would call your API to update the order status
-      await api.put(`/admin/orders/${orderId}/status`, { status: newStatus })
-
-      // Update the order in the list
-      const updatedOrders = orders.map((order) =>
-        order.id === orderId
-          ? {
-              ...order,
-              status: newStatus,
-              updated_at: new Date().toISOString(),
-            }
-          : order,
-      )
-
-      setOrders(updatedOrders)
-      setFilteredOrders(updatedOrders)
-
-      toast({
-        title: "Order status updated",
-        description: `Order #${orderId} has been marked as ${newStatus}`,
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-      })
-    } catch (error) {
-      console.error("Error updating order status:", error)
-      toast({
-        title: "Error",
-        description: "Failed to update order status. Please try again.",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      })
+  // Helper function to handle null values
+  const formatValue = (value: string | number | null | undefined): string => {
+    if (value === null || value === undefined || value === "") {
+      return "-"
     }
+    return String(value)
   }
 
   const viewOrderDetails = (order: Order) => {
@@ -219,13 +193,15 @@ export default function OrdersPage() {
         return "green"
       case "cancelled":
         return "red"
+      case "paid":
+        return "green"
       default:
         return "gray"
     }
   }
 
   const handleNextPage = () => {
-    if (meta && currentPage < meta.last_page) {
+    if (currentPage < pagination.totalPages) {
       setCurrentPage(currentPage + 1)
     }
   }
@@ -236,7 +212,9 @@ export default function OrdersPage() {
     }
   }
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "-"
+
     const date = new Date(dateString)
     return date.toLocaleDateString("en-US", {
       year: "numeric",
@@ -285,7 +263,7 @@ export default function OrdersPage() {
                 colorScheme="blue"
                 w={{ base: "full", sm: "auto" }}
                 onChange={(index) => {
-                  const tabValues = ["all", "pending", "processing", "shipped", "delivered"]
+                  const tabValues = ["all", "pending", "processing", "shipped", "delivered", "paid"]
                   setActiveTab(tabValues[index])
                 }}
               >
@@ -295,6 +273,7 @@ export default function OrdersPage() {
                   <Tab>Processing</Tab>
                   <Tab>Shipped</Tab>
                   <Tab>Delivered</Tab>
+                  <Tab>Paid</Tab>
                 </TabList>
               </Tabs>
             </Flex>
@@ -306,16 +285,17 @@ export default function OrdersPage() {
                   <Tr>
                     <Th>Order ID</Th>
                     <Th>Customer</Th>
+                    <Th>Medication</Th>
                     <Th>Date</Th>
                     <Th isNumeric>Total</Th>
                     <Th>Status</Th>
-                    <Th isNumeric>Actions</Th>
+                    <Th>View</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
                   {filteredOrders.length === 0 ? (
                     <Tr>
-                      <Td colSpan={6} textAlign="center" py={6} color="gray.500">
+                      <Td colSpan={7} textAlign="center" py={6} color="gray.500">
                         No orders found
                       </Td>
                     </Tr>
@@ -325,9 +305,17 @@ export default function OrdersPage() {
                         <Td>#{order.id}</Td>
                         <Td>
                           <Box>
-                            <Text fontWeight="medium">{order.customer?.name || `User ${order.user_id}`}</Text>
+                            <Text fontWeight="medium">{formatValue(order.user?.name)}</Text>
                             <Text fontSize="sm" color="gray.500">
-                              {order.customer?.email || `user${order.user_id}@example.com`}
+                              {formatValue(order.user?.email)}
+                            </Text>
+                          </Box>
+                        </Td>
+                        <Td>
+                          <Box>
+                            <Text fontWeight="medium">{formatValue(order.drug?.name)}</Text>
+                            <Text fontSize="sm" color="gray.500">
+                              Qty: {order.quantity}
                             </Text>
                           </Box>
                         </Td>
@@ -338,57 +326,15 @@ export default function OrdersPage() {
                             {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                           </Badge>
                         </Td>
-                        <Td isNumeric>
-                          <Menu>
-                            <MenuButton
-                              as={IconButton}
-                              aria-label="Options"
-                              icon={<MoreHorizontal size={16} />}
-                              variant="ghost"
-                              size="sm"
-                            />
-                            <MenuList>
-                              <MenuItem icon={<Eye size={16} />} onClick={() => viewOrderDetails(order)}>
-                                View Details
-                              </MenuItem>
-                              <MenuDivider />
-                              <MenuList>Update Status</MenuList>
-                              {order.status !== "processing" && (
-                                <MenuItem
-                                  icon={<CheckCircle size={16} color="blue" />}
-                                  onClick={() => handleUpdateStatus(order.id, "processing")}
-                                >
-                                  Mark as Processing
-                                </MenuItem>
-                              )}
-                              {order.status !== "shipped" &&
-                                order.status !== "delivered" &&
-                                order.status !== "cancelled" && (
-                                  <MenuItem
-                                    icon={<Truck size={16} color="purple" />}
-                                    onClick={() => handleUpdateStatus(order.id, "shipped")}
-                                  >
-                                    Mark as Shipped
-                                  </MenuItem>
-                                )}
-                              {order.status !== "delivered" && order.status !== "cancelled" && (
-                                <MenuItem
-                                  icon={<CheckCircle size={16} color="green" />}
-                                  onClick={() => handleUpdateStatus(order.id, "delivered")}
-                                >
-                                  Mark as Delivered
-                                </MenuItem>
-                              )}
-                              {order.status !== "cancelled" && order.status !== "delivered" && (
-                                <MenuItem
-                                  icon={<XCircle size={16} color="red" />}
-                                  onClick={() => handleUpdateStatus(order.id, "cancelled")}
-                                >
-                                  Cancel Order
-                                </MenuItem>
-                              )}
-                            </MenuList>
-                          </Menu>
+                        <Td>
+                          <Button
+                            leftIcon={<Eye size={16} />}
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => viewOrderDetails(order)}
+                          >
+                            View
+                          </Button>
                         </Td>
                       </Tr>
                     ))
@@ -396,10 +342,10 @@ export default function OrdersPage() {
                 </Tbody>
               </Table>
             </Box>
-            {meta && (
+            {pagination.totalItems > 0 && (
               <Flex justify="space-between" align="center" mt={4}>
                 <Text fontSize="sm">
-                  Showing {meta.from || 0} to {meta.to || 0} of {meta.total || 0} orders
+                  Showing {pagination.from || 0} to {pagination.to || 0} of {pagination.totalItems || 0} orders
                 </Text>
                 <HStack>
                   <Button
@@ -411,13 +357,13 @@ export default function OrdersPage() {
                     Previous
                   </Button>
                   <Text fontSize="sm">
-                    Page {meta.current_page || 1} of {meta.last_page || 1}
+                    Page {pagination.currentPage || 1} of {pagination.totalPages || 1}
                   </Text>
                   <Button
                     size="sm"
                     rightIcon={<ChevronRight size={16} />}
                     onClick={handleNextPage}
-                    isDisabled={!meta.last_page || meta.current_page === meta.last_page}
+                    isDisabled={currentPage === pagination.totalPages}
                   >
                     Next
                   </Button>
@@ -442,10 +388,20 @@ export default function OrdersPage() {
                     <Text fontSize="sm" fontWeight="medium" mb={1}>
                       Customer
                     </Text>
-                    <Text fontSize="sm">{selectedOrder.customer?.name || `User ${selectedOrder.user_id}`}</Text>
+                    <Text fontSize="sm">{formatValue(selectedOrder.user?.name)}</Text>
                     <Text fontSize="sm" color="gray.500">
-                      {selectedOrder.customer?.email || `user${selectedOrder.user_id}@example.com`}
+                      {formatValue(selectedOrder.user?.email)}
                     </Text>
+                    {selectedOrder.user?.phone && (
+                      <Text fontSize="sm" color="gray.500">
+                        Phone: {selectedOrder.user.phone}
+                      </Text>
+                    )}
+                    {selectedOrder.user?.address && (
+                      <Text fontSize="sm" color="gray.500">
+                        Address: {selectedOrder.user.address}
+                      </Text>
+                    )}
                   </Box>
                   <Box>
                     <Text fontSize="sm" fontWeight="medium" mb={1}>
@@ -463,7 +419,7 @@ export default function OrdersPage() {
 
                 <Box>
                   <Text fontSize="sm" fontWeight="medium" mb={2}>
-                    Order Items
+                    Order Details
                   </Text>
                   <Box borderWidth="1px" borderRadius="md">
                     <Table variant="simple" size="sm">
@@ -476,14 +432,12 @@ export default function OrdersPage() {
                         </Tr>
                       </Thead>
                       <Tbody>
-                        {selectedOrder.items.map((item, index) => (
-                          <Tr key={index}>
-                            <Td>{item.name}</Td>
-                            <Td textAlign="center">{item.quantity}</Td>
-                            <Td isNumeric>${Number(item.price).toFixed(2)}</Td>
-                            <Td isNumeric>${item.subtotal.toFixed(2)}</Td>
-                          </Tr>
-                        ))}
+                        <Tr>
+                          <Td>{formatValue(selectedOrder.drug?.name)}</Td>
+                          <Td textAlign="center">{selectedOrder.quantity}</Td>
+                          <Td isNumeric>${selectedOrder.drug?.price.toFixed(2) || "-"}</Td>
+                          <Td isNumeric>${Number(selectedOrder.total_amount).toFixed(2)}</Td>
+                        </Tr>
                         <Tr>
                           <Td colSpan={3} textAlign="right" fontWeight="medium">
                             Total:
@@ -497,22 +451,25 @@ export default function OrdersPage() {
                   </Box>
                 </Box>
 
-                <Flex justify="space-between">
+                {selectedOrder.prescription_image && (
+                  <Box>
+                    <Text fontSize="sm" fontWeight="medium" mb={2}>
+                      Prescription
+                    </Text>
+                    <Image
+                      src={selectedOrder.prescription_image || "/placeholder.svg"}
+                      alt="Prescription"
+                      borderRadius="md"
+                      maxH="300px"
+                      mx="auto"
+                    />
+                  </Box>
+                )}
+
+                <Flex justify="center">
                   <Button variant="outline" onClick={onViewClose}>
                     Close
                   </Button>
-                  {selectedOrder.status !== "delivered" && selectedOrder.status !== "cancelled" && (
-                    <Button
-                      colorScheme="green"
-                      onClick={() => {
-                        handleUpdateStatus(selectedOrder.id, "delivered")
-                        onViewClose()
-                      }}
-                      leftIcon={<CheckCircle size={16} />}
-                    >
-                      Mark as Delivered
-                    </Button>
-                  )}
                 </Flex>
               </Stack>
             )}
@@ -548,7 +505,7 @@ function OrdersSkeleton() {
             <Table variant="simple" size="sm">
               <Thead>
                 <Tr>
-                  {["Order ID", "Customer", "Date", "Total", "Status", "Actions"].map((header) => (
+                  {["Order ID", "Customer", "Medication", "Date", "Total", "Status", "View"].map((header) => (
                     <Th key={header}>
                       <Skeleton height="14px" width="80%" />
                     </Th>
@@ -570,6 +527,12 @@ function OrdersSkeleton() {
                         </Box>
                       </Td>
                       <Td>
+                        <Box>
+                          <Skeleton height="16px" width="100px" mb={1} />
+                          <Skeleton height="14px" width="60px" />
+                        </Box>
+                      </Td>
+                      <Td>
                         <Skeleton height="16px" width="80px" />
                       </Td>
                       <Td isNumeric>
@@ -578,10 +541,8 @@ function OrdersSkeleton() {
                       <Td>
                         <Skeleton height="20px" width="70px" borderRadius="full" />
                       </Td>
-                      <Td isNumeric>
-                        <Flex justify="flex-end">
-                          <Skeleton height="24px" width="32px" />
-                        </Flex>
+                      <Td>
+                        <Skeleton height="32px" width="60px" />
                       </Td>
                     </Tr>
                   ))}

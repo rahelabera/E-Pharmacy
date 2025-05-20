@@ -27,10 +27,23 @@ import {
   StatHelpText,
   Progress,
   Icon,
+  Avatar,
 } from "@chakra-ui/react"
-import { FiArrowLeft, FiEdit, FiPackage, FiCalendar, FiDollarSign, FiShoppingBag } from "react-icons/fi"
+import { FiArrowLeft, FiPackage, FiCalendar, FiDollarSign, FiShoppingBag, FiFileText } from "react-icons/fi"
 import { useAuth } from "@/contexts/auth-context"
 import api from "@/lib/api"
+
+type Creator = {
+  id: number
+  name: string
+  username: string
+  email: string
+  role: string | null
+  profile_image: string | null
+  cloudinary_public_id: string | null
+  created_at: string
+  updated_at: string
+}
 
 type Drug = {
   id: number
@@ -38,13 +51,14 @@ type Drug = {
   brand: string
   description: string
   category: string
-  price: string // Changed from number to string to match API response
+  price: number
   stock: number
   dosage: string
+  image: string | null
+  prescription_needed: boolean
   expires_at: string
-  image_url?: string
-  created_at?: string // Optional since it's not in the API response
-  updated_at?: string
+  creator: Creator
+  username: string
 }
 
 export default function DrugDetailPage() {
@@ -61,20 +75,7 @@ export default function DrugDetailPage() {
       try {
         // Fetch drug details
         const response = await api.get(`/drugs/${id}`)
-
-        console.log("Drug details response:", response.data)
-
-        // Extract drug data based on API response structure
-        let drugData = null
-        if (response.data.data) {
-          drugData = response.data.data
-        } else if (response.data.drug) {
-          drugData = response.data.drug
-        } else {
-          drugData = response.data
-        }
-
-        setDrug(drugData)
+        setDrug(response.data.data)
       } catch (error) {
         console.error("Error fetching drug details:", error)
         toast({
@@ -96,7 +97,7 @@ export default function DrugDetailPage() {
 
   // Helper function to handle null values
   const formatValue = (value: string | number | null | undefined): string => {
-    if (value === null || value === undefined) return "-"
+    if (value === null || value === undefined || value === "") return "-"
     return String(value)
   }
 
@@ -111,13 +112,13 @@ export default function DrugDetailPage() {
     return new Date(dateString).toLocaleDateString(undefined, options)
   }
 
-  const formatCurrency = (amount: string | number | null | undefined) => {
+  const formatCurrency = (amount: number | null | undefined) => {
     if (amount === null || amount === undefined) return "-"
 
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "ETB",
-    }).format(typeof amount === "string" ? Number.parseFloat(amount) : amount)
+    }).format(amount)
   }
 
   const getStockStatusColor = (stock: number) => {
@@ -127,10 +128,10 @@ export default function DrugDetailPage() {
   }
 
   const getDrugImageUrl = (drug: Drug) => {
-    if (drug.image_url) return drug.image_url
+    if (drug.image) return drug.image
 
-    // Return a placeholder image based on the drug category
-    return `https://via.placeholder.com/800x600.png?text=${encodeURIComponent(drug.name)}`
+    // Return a placeholder image
+    return `/placeholder.svg?text=${encodeURIComponent(drug.name)}`
   }
 
   const isExpiringSoon = (expiryDate: string) => {
@@ -172,9 +173,6 @@ export default function DrugDetailPage() {
           />
           <Heading size="lg">Drug Details</Heading>
         </Flex>
-        <Button leftIcon={<FiEdit />} colorScheme="blue" onClick={() => router.push(`/dashboard/drugs/edit/${id}`)}>
-          Edit Drug
-        </Button>
       </Flex>
 
       <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6}>
@@ -202,6 +200,13 @@ export default function DrugDetailPage() {
               <HStack w="full" justify="space-between">
                 <Text fontWeight="bold">Dosage:</Text>
                 <Text>{formatValue(drug.dosage)}</Text>
+              </HStack>
+
+              <HStack w="full" justify="space-between">
+                <Text fontWeight="bold">Prescription Required:</Text>
+                <Badge colorScheme={drug.prescription_needed ? "red" : "green"}>
+                  {drug.prescription_needed ? "Required" : "Not Required"}
+                </Badge>
               </HStack>
 
               <Divider />
@@ -257,19 +262,56 @@ export default function DrugDetailPage() {
 
         <Card>
           <CardHeader>
-            <Heading size="md">Drug Image</Heading>
+            <Heading size="md">Drug Image & Details</Heading>
           </CardHeader>
           <CardBody>
-            <Box borderRadius="md" overflow="hidden">
+            <Box borderRadius="md" overflow="hidden" mb={6}>
               <Image
                 src={getDrugImageUrl(drug) || "/placeholder.svg"}
                 alt={drug.name}
                 w="full"
-                maxH="400px"
+                maxH="300px"
                 objectFit="contain"
-                fallbackSrc={`https://via.placeholder.com/800x600.png?text=${encodeURIComponent(drug.name)}`}
+                fallbackSrc={`/placeholder.svg?text=${encodeURIComponent(drug.name)}`}
               />
             </Box>
+
+            <Divider mb={6} />
+
+            <VStack align="start" spacing={4}>
+              <Heading size="sm">Added By</Heading>
+              <Flex
+                align="center"
+                w="full"
+                bg="blue.50"
+                p={4}
+                borderRadius="md"
+                cursor="pointer"
+                _hover={{ bg: "blue.100", transform: "translateY(-2px)" }}
+                transition="all 0.2s"
+                onClick={() => router.push(`/dashboard/pharmacists/${drug.creator?.id}`)}
+                role="group"
+              >
+                <Avatar size="md" name={drug.creator?.name} src={drug.creator?.profile_image || undefined} mr={4} />
+                <Box>
+                  <Text fontWeight="bold">{formatValue(drug.creator?.name)}</Text>
+                  <Text fontSize="sm" color="gray.600">
+                    {formatValue(drug.creator?.email)}
+                  </Text>
+                  <Text fontSize="xs" color="gray.500">
+                    Added on {formatDate(drug.creator?.created_at)}
+                  </Text>
+                </Box>
+                <Icon
+                  ml="auto"
+                  as={FiArrowLeft}
+                  transform="rotate(180deg)"
+                  opacity={0}
+                  _groupHover={{ opacity: 1 }}
+                  transition="all 0.2s"
+                />
+              </Flex>
+            </VStack>
 
             <SimpleGrid columns={2} spacing={4} mt={6}>
               <Flex align="center" bg="blue.50" p={4} borderRadius="md">
@@ -311,6 +353,22 @@ export default function DrugDetailPage() {
                   <Text>{formatValue(drug.stock)} units</Text>
                 </Box>
               </Flex>
+
+              <Flex
+                align="center"
+                bg={drug.prescription_needed ? "red.50" : "green.50"}
+                p={4}
+                borderRadius="md"
+                gridColumn="span 2"
+              >
+                <Icon as={FiFileText} boxSize={6} color={drug.prescription_needed ? "red.500" : "green.500"} mr={3} />
+                <Box>
+                  <Text fontWeight="bold" fontSize="sm">
+                    Prescription Status
+                  </Text>
+                  <Text>{drug.prescription_needed ? "Prescription Required" : "No Prescription Required"}</Text>
+                </Box>
+              </Flex>
             </SimpleGrid>
           </CardBody>
         </Card>
@@ -327,7 +385,6 @@ function DrugDetailSkeleton() {
           <Skeleton height="40px" width="40px" mr={4} />
           <Skeleton height="30px" width="250px" />
         </Flex>
-        <Skeleton height="40px" width="120px" />
       </Flex>
 
       <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6}>
@@ -360,11 +417,13 @@ function DrugDetailSkeleton() {
           </CardHeader>
           <CardBody>
             <Skeleton height="300px" width="full" borderRadius="md" />
+            <Skeleton height="80px" width="full" mt={6} />
             <SimpleGrid columns={2} spacing={4} mt={6}>
               <Skeleton height="80px" />
               <Skeleton height="80px" />
               <Skeleton height="80px" />
               <Skeleton height="80px" />
+              <Skeleton height="80px" gridColumn="span 2" />
             </SimpleGrid>
           </CardBody>
         </Card>

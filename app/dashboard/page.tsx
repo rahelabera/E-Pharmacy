@@ -110,6 +110,14 @@ export default function DashboardPage() {
     return value ? value : "-"
   }
 
+  // Helper to get greeting based on current hour
+  const getGreeting = () => {
+    const hour = currentDate.getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 18) return "Good Afternoon";
+    return "Good Evening";
+  };
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       setIsLoading(true)
@@ -119,7 +127,7 @@ export default function DashboardPage() {
         const [drugsRes, pharmacistsRes, patientsRes, ordersRes, prescriptionsRes] = await Promise.allSettled([
           api.get("/drugs"),
           api.get("/admin/pharmacists/all"),
-          api.get("/patients"),
+          api.get("/admin/patients"),
           api.get("/admin/orders"),
           api.get("/admin/prescriptions"), // Assuming there's a prescriptions endpoint
         ])
@@ -148,14 +156,12 @@ export default function DashboardPage() {
           const pharmacistsData = pharmacistsRes.value.data
           pharmacists = pharmacistsData.data?.data || pharmacistsData.data || pharmacistsData.pharmacists || []
         }
-
         // Process patients data
         let patients = []
         if (patientsRes.status === "fulfilled") {
           const patientsData = patientsRes.value.data
-          patients = patientsData.patients || patientsData.data || []
+          patients = patientsData.data?.data || []
         }
-
         // Process orders data
         let orders = []
         if (ordersRes.status === "fulfilled") {
@@ -411,9 +417,9 @@ export default function DashboardPage() {
 
               <Box my={4}>
                 <Heading size="lg" mb={1}>
-                  Good Day, {formatValue(user?.name)}!
+                  {getGreeting()}, {formatValue(user?.name)}!
                 </Heading>
-                <Text>Welcome to ePharmacy Admin Dashboard</Text>
+                <Text>Welcome to E-Market Pharmacy Admin Dashboard</Text>
               </Box>
             </Flex>
 
@@ -455,13 +461,6 @@ export default function DashboardPage() {
               </VStack>
 
               <Divider />
-
-              <VStack align="center" justify="center">
-                <Heading size="md">{stats.totalOrders}</Heading>
-                <Text fontSize="sm" color="gray.500" align="center">
-                  Total Orders
-                </Text>
-              </VStack>
             </VStack>
           </CardBody>
         </Card>
@@ -469,26 +468,36 @@ export default function DashboardPage() {
 
       {/* Analytics section */}
       <SimpleGrid columns={{ base: 1, md: 4 }} spacing={6} mb={6}>
-        {/* Total Users */}
-        <Card>
+        {/* Total Patients */}
+        <Card
+          as="button"
+          onClick={() => router.push("/dashboard/patients")}
+          _hover={{ boxShadow: "lg", transform: "translateY(-2px)" }}
+          transition="all 0.2s"
+        >
           <CardBody p={4}>
             <Flex align="center" mb={3}>
               <Box bg="blue.50" p={2} borderRadius="md" mr={3}>
                 <Icon as={FiUsers} color="blue.500" boxSize={5} />
               </Box>
-              <Text fontWeight="bold">Total Users</Text>
+              <Text fontWeight="bold">Total Patients</Text>
             </Flex>
             <Heading size="2xl" mb={2}>
-              {stats.totalUsers}
+              {stats.patientsCount}
             </Heading>
             <Text fontSize="sm" color="gray.500">
-              {stats.patientsCount} patients, {stats.pharmacistsCount} pharmacists
+              Registered patients
             </Text>
           </CardBody>
         </Card>
 
         {/* Pharmacists */}
-        <Card>
+        <Card
+          as="button"
+          onClick={() => router.push("/dashboard/pharmacists")}
+          _hover={{ boxShadow: "lg", transform: "translateY(-2px)" }}
+          transition="all 0.2s"
+        >
           <CardBody p={4}>
             <Flex align="center" mb={3}>
               <Box bg="green.50" p={2} borderRadius="md" mr={3}>
@@ -506,7 +515,12 @@ export default function DashboardPage() {
         </Card>
 
         {/* Pending Approvals */}
-        <Card>
+        <Card
+          as="button"
+          onClick={() => router.push("/dashboard/pharmacists/pending")}
+          _hover={{ boxShadow: "lg", transform: "translateY(-2px)" }}
+          transition="all 0.2s"
+        >
           <CardBody p={4}>
             <Flex align="center" mb={3}>
               <Box bg="yellow.50" p={2} borderRadius="md" mr={3}>
@@ -524,7 +538,12 @@ export default function DashboardPage() {
         </Card>
 
         {/* Drugs */}
-        <Card>
+        <Card
+          as="button"
+          onClick={() => router.push("/dashboard/drugs")}
+          _hover={{ boxShadow: "lg", transform: "translateY(-2px)" }}
+          transition="all 0.2s"
+        >
           <CardBody p={4}>
             <Flex align="center" mb={3}>
               <Box bg="purple.50" p={2} borderRadius="md" mr={3}>
