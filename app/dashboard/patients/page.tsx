@@ -1,5 +1,6 @@
 "use client"
 
+import type React from "react"
 import { useState, useEffect } from "react"
 import {
   Box,
@@ -27,7 +28,8 @@ import {
   Select,
   Button,
 } from "@chakra-ui/react"
-import { Search, MapPin, ChevronLeft, ChevronRight } from "lucide-react"
+// Import the Check icon
+import { Search, MapPin, ChevronLeft, ChevronRight, Eye, Check } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import api from "@/lib/api"
 import { useRouter } from "next/navigation"
@@ -51,12 +53,12 @@ type Patient = {
   updated_at: string | null
   license_image: string | null
   tin_image: string | null
-  tin_number: string | null
-  account_number: string | null
-  bank_name: string | null
-  license_public_id: string | null
-  tin_public_id: string | null
-  google_id: string | null
+  // tin_number: string | null
+  // account_number: string | null
+  // bank_name: string | null
+  // license_public_id: string | null
+  // tin_public_id: string | null
+  // google_id: string | null
 }
 
 type PatientsResponse = {
@@ -106,9 +108,10 @@ export default function PatientsPage() {
   const [patients, setPatients] = useState<Patient[]>([])
   const [filteredPatients, setFilteredPatients] = useState<Patient[]>([])
   const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
+  // const [statusFilter, setStatusFilter] = useState("all")
   const [isLoading, setIsLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
+  const [rowsPerPage, setRowsPerPage] = useState(10)
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -117,12 +120,15 @@ export default function PatientsPage() {
     to: 0,
   })
 
+  // Add a new state to track the input value
+  const [rowsPerPageInput, setRowsPerPageInput] = useState(rowsPerPage.toString())
+
   useEffect(() => {
     // Fetch patients from the API
     const fetchPatients = async () => {
       setIsLoading(true)
       try {
-        const response = await api.get<PatientsResponse>(`/admin/patients?page=${currentPage}`)
+        const response = await api.get<PatientsResponse>(`/admin/patients?page=${currentPage}&per_page=${rowsPerPage}`)
 
         if (response.data.status === "success") {
           const patientsData = response.data.data.data || []
@@ -138,13 +144,13 @@ export default function PatientsPage() {
             to: response.data.data.to,
           })
         } else {
-          throw new Error("Failed to fetch patients")
+          throw new Error("Failed to fetch users")
         }
       } catch (error) {
-        console.error("Error fetching patients:", error)
+        console.error("Error fetching users:", error)
         toast({
-          title: "Error fetching patients",
-          description: "Failed to load patient data. Please try again later.",
+          title: "Error fetching users",
+          description: "Failed to load user data. Please try again later.",
           status: "error",
           duration: 5000,
           isClosable: true,
@@ -155,7 +161,7 @@ export default function PatientsPage() {
     }
 
     fetchPatients()
-  }, [token, toast, currentPage])
+  }, [token, toast, currentPage, rowsPerPage])
 
   useEffect(() => {
     // Filter patients based on search term and status
@@ -173,12 +179,12 @@ export default function PatientsPage() {
     }
 
     // Apply status filter
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((patient) => patient.status === statusFilter)
-    }
+    // if (statusFilter !== "all") {
+    //   filtered = filtered.filter((patient) => patient.status === statusFilter)
+    // }
 
     setFilteredPatients(filtered)
-  }, [searchTerm, statusFilter, patients])
+  }, [searchTerm, patients])
 
   // Helper function to handle null values
   const formatValue = (value: string | number | null | undefined): string => {
@@ -199,20 +205,20 @@ export default function PatientsPage() {
     return new Date(dateString).toLocaleDateString(undefined, options)
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "active":
-      case "approved":
-        return "green"
-      case "pending":
-        return "yellow"
-      case "inactive":
-      case "rejected":
-        return "red"
-      default:
-        return "gray"
-    }
-  }
+  // const getStatusColor = (status: string) => {
+  //   switch (status.toLowerCase()) {
+  //     case "active":
+  //     case "approved":
+  //       return "green"
+  //     case "pending":
+  //       return "yellow"
+  //     case "inactive":
+  //     case "rejected":
+  //       return "red"
+  //     default:
+  //       return "gray"
+  //   }
+  // }
 
   const handleNextPage = () => {
     if (currentPage < pagination.totalPages) {
@@ -226,6 +232,15 @@ export default function PatientsPage() {
     }
   }
 
+  const handleRowsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setRowsPerPage(Number(e.target.value))
+    setCurrentPage(1) // Reset to first page when changing rows per page
+  }
+
+  const viewPatientDetails = (patientId: number) => {
+    router.push(`/dashboard/patients/${patientId}`)
+  }
+
   if (isLoading) {
     return <PatientsSkeleton />
   }
@@ -234,10 +249,10 @@ export default function PatientsPage() {
     <Box>
       <Stack spacing={6}>
         <Box>
-          <Heading as="h1" size="lg" mb={1}>
-            Patients
+          <Heading as="h1" size="md" mb={1}>
+            Users
           </Heading>
-          <Text color="gray.600">Manage patient accounts and information</Text>
+          <Text color="gray.600">User accounts and information</Text>
         </Box>
 
         <Card>
@@ -255,13 +270,13 @@ export default function PatientsPage() {
                   </InputLeftElement>
                   <Input
                     type="search"
-                    placeholder="Search patients..."
+                    placeholder="Search users..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </InputGroup>
               </Box>
-              <Select
+              {/* <Select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 w={{ base: "full", sm: "auto" }}
@@ -271,7 +286,7 @@ export default function PatientsPage() {
                 <option value="pending">Pending</option>
                 <option value="approved">Approved</option>
                 <option value="rejected">Rejected</option>
-              </Select>
+              </Select> */}
             </Flex>
           </CardHeader>
           <CardBody>
@@ -279,58 +294,57 @@ export default function PatientsPage() {
               <Table variant="simple" size="sm">
                 <Thead>
                   <Tr>
-                    <Th>Patient</Th>
-                    <Th>Contact</Th>
-                    <Th>Location</Th>
-                    <Th>Status</Th>
+                    <Th>Profile</Th>
+                    <Th>Name</Th>
+                    <Th>Username</Th>
+                    <Th>Email</Th>
+                    <Th>Address</Th>
                     <Th>Registered</Th>
+                    <Th>Actions</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
                   {filteredPatients.length === 0 ? (
                     <Tr>
-                      <Td colSpan={5} textAlign="center" py={6} color="gray.500">
-                        No patients found
+                      <Td colSpan={7} textAlign="center" py={6} color="gray.500">
+                        No users found
                       </Td>
                     </Tr>
                   ) : (
                     filteredPatients.map((patient) => (
                       <Tr key={patient.id}>
                         <Td>
-                          <Flex align="center" gap={3}>
-                            <Avatar size="sm" name={patient.name} bg="blue.100" color="blue.600" />
-                            <Box>
-                              <Text fontWeight="medium">{formatValue(patient.name)}</Text>
-                              <Text fontSize="sm" color="gray.500">
-                                ID: {patient.id}
-                              </Text>
-                            </Box>
-                          </Flex>
+                          <Avatar
+                            size="sm"
+                            name={patient.name}
+                            src={patient.license_image || undefined}
+                            bg="blue.100"
+                            color="blue.600"
+                          />
                         </Td>
                         <Td>
-                          <Box>
-                            <Text fontSize="sm">{formatValue(patient.email)}</Text>
-                            <Text fontSize="sm" color="gray.500">
-                              {formatValue(patient.phone)}
-                            </Text>
-                          </Box>
+                          <Text fontWeight="medium">{formatValue(patient.name)}</Text>
                         </Td>
                         <Td>
-                          {patient.address ? (
-                            <Flex align="center" gap={1}>
-                              <MapPin size={14} />
-                              <Text fontSize="sm">{patient.address}</Text>
-                            </Flex>
-                          ) : (
-                            "-"
-                          )}
+                          <Text color="gray.600">@{patient.username}</Text>
                         </Td>
-                        <Td>
-                          <Badge colorScheme={getStatusColor(patient.status)}>
-                            {patient.status.charAt(0).toUpperCase() + patient.status.slice(1)}
-                          </Badge>
-                        </Td>
+                        <Td>{patient.email}</Td>
+                        <Td>{patient.address || "-"}</Td>
                         <Td>{formatDate(patient.created_at)}</Td>
+                        <Td>
+                          <Text
+                            color="blue.500"
+                            fontWeight="medium"
+                            cursor="pointer"
+                            display="flex"
+                            alignItems="center"
+                            onClick={() => viewPatientDetails(patient.id)}
+                            _hover={{ textDecoration: "underline" }}
+                          >
+                            <Eye size={16} style={{ marginRight: "6px" }} />
+                            View
+                          </Text>
+                        </Td>
                       </Tr>
                     ))
                   )}
@@ -340,10 +354,56 @@ export default function PatientsPage() {
 
             {/* Pagination controls */}
             {pagination.totalItems > 0 && (
-              <Flex justify="space-between" align="center" mt={4}>
+              <Flex justify="space-between" align="center" mt={4} wrap="wrap" gap={4}>
+                {/* Replace the rows per page input and button with this updated version */}
+                <HStack>
+                  <Text fontSize="sm" whiteSpace="nowrap">
+                    Rows per page:
+                  </Text>
+                  <InputGroup size="sm" width="80px">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={rowsPerPageInput}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        if (value === "" || (Number(value) > 0 && Number(value) <= 100)) {
+                          setRowsPerPageInput(value)
+                        }
+                      }}
+                      pr="2.5rem" // add padding for the button
+                    />
+                    <Box
+                      position="absolute"
+                      right="0.5rem"
+                      top="50%"
+                      transform="translateY(-50%)"
+                      as="button"
+                      onClick={() => {
+                        const value = Number(rowsPerPageInput)
+                        if (value > 0 && value <= 100) {
+                          setRowsPerPage(value)
+                          setCurrentPage(1) // Reset to first page when changing rows per page
+                        }
+                      }}
+                      cursor="pointer"
+                      p={1}
+                      borderRadius="sm"
+                      _hover={{ bg: "blue.50" }}
+                      color="blue.500"
+                      bg="transparent"
+                      zIndex={1}
+                    >
+                      <Check size={16} />
+                    </Box>
+                  </InputGroup>
+                </HStack>
+
                 <Text fontSize="sm">
                   Showing {pagination.from} to {pagination.to} of {pagination.totalItems} patients
                 </Text>
+
                 <HStack>
                   <Button
                     size="sm"
@@ -399,11 +459,13 @@ function PatientsSkeleton() {
             <Table variant="simple" size="sm">
               <Thead>
                 <Tr>
-                  {["Patient", "Contact", "Location", "Status", "Registered"].map((header) => (
-                    <Th key={header}>
-                      <Skeleton height="14px" width="80%" />
-                    </Th>
-                  ))}
+                  <Th>Profile</Th>
+                  <Th>Name</Th>
+                  <Th>Username</Th>
+                  <Th>Email</Th>
+                  <Th>Address</Th>
+                  <Th>Registered</Th>
+                  <Th>Actions</Th>
                 </Tr>
               </Thead>
               <Tbody>
@@ -412,31 +474,25 @@ function PatientsSkeleton() {
                   .map((_, i) => (
                     <Tr key={i}>
                       <Td>
-                        <Flex align="center" gap={3}>
-                          <Skeleton height="32px" width="32px" borderRadius="full" />
-                          <Box>
-                            <Skeleton height="16px" width="120px" mb={1} />
-                            <Skeleton height="14px" width="80px" />
-                          </Box>
-                        </Flex>
+                        <Skeleton height="32px" width="32px" borderRadius="full" />
                       </Td>
                       <Td>
-                        <Box>
-                          <Skeleton height="14px" width="150px" mb={1} />
-                          <Skeleton height="14px" width="100px" />
-                        </Box>
+                        <Skeleton height="16px" width="80px" />
                       </Td>
                       <Td>
-                        <Flex align="center" gap={1}>
-                          <Skeleton height="14px" width="14px" />
-                          <Skeleton height="14px" width="120px" />
-                        </Flex>
+                        <Skeleton height="16px" width="80px" />
                       </Td>
                       <Td>
-                        <Skeleton height="20px" width="70px" borderRadius="full" />
+                        <Skeleton height="16px" width="120px" />
                       </Td>
                       <Td>
-                        <Skeleton height="14px" width="80px" />
+                        <Skeleton height="16px" width="100px" />
+                      </Td>
+                      <Td>
+                        <Skeleton height="16px" width="80px" />
+                      </Td>
+                      <Td>
+                        <Skeleton height="32px" width="60px" />
                       </Td>
                     </Tr>
                   ))}
@@ -444,6 +500,7 @@ function PatientsSkeleton() {
             </Table>
           </Box>
           <Flex justify="space-between" align="center" mt={4}>
+            <Skeleton height="32px" width="150px" />
             <Skeleton height="16px" width="200px" />
             <Flex gap={2}>
               <Skeleton height="32px" width="80px" />

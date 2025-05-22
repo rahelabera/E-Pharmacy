@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import {
   Box,
   Button,
@@ -11,13 +12,7 @@ import {
   Heading,
   Input,
   InputGroup,
-  InputLeftElement,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalHeader,
-  ModalOverlay,
+  InputRightElement,
   Skeleton,
   Stack,
   Tab,
@@ -31,177 +26,160 @@ import {
   Td,
   Text,
   Badge,
-  useToast,
-  useDisclosure,
-  Grid,
   HStack,
   Image,
+  Avatar,
+  IconButton,
+  InputLeftElement as ChakraInputLeftElement,
 } from "@chakra-ui/react"
-import { Search, Eye, ChevronLeft, ChevronRight } from "lucide-react"
+// Import the Check icon
+import { Search, ChevronLeft, ChevronRight, Eye, Check } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import api from "@/lib/api"
 
-type OrderUser = {
+type Creator = {
   id: number
   name: string
+  username: string
   email: string
-  phone: string | null
-  address: string | null
-}
-
-type OrderDrug = {
-  id: number
-  name: string
-  price: number
-}
-
-type Order = {
-  id: number
-  user: OrderUser
-  drug: OrderDrug
-  quantity: number
-  total_amount: string
-  status: "pending" | "processing" | "shipped" | "delivered" | "cancelled" | "paid"
-  prescription_image: string | null
+  role: string | null
+  profile_image: string | null
+  cloudinary_public_id: string | null
   created_at: string
   updated_at: string
 }
 
-type OrdersResponse = {
-  status: string
-  message: string
-  data: Order[]
-  meta: {
-    current_page: number
-    from: number
-    last_page: number
-    per_page: number
-    to: number
-    total: number
-  }
-  links: {
-    first: string
-    last: string
-    prev: string | null
-    next: string | null
-  }
+type Drug = {
+  id: number
+  name: string
+  brand: string
+  description: string
+  category: string
+  price: number
+  stock: number
+  dosage: string
+  image: string | null
+  prescription_needed: boolean
+  expires_at: string
+  creator: Creator
+  username: string
 }
 
-export default function OrdersPage() {
+type Meta = {
+  current_page: number
+  from: number
+  last_page: number
+  per_page: number
+  to: number
+  total: number
+  total_stock?: number
+  low_stock_count?: number
+}
+
+type Links = {
+  first: string
+  last: string
+  prev: string | null
+  next: string | null
+}
+
+type DrugsResponse = {
+  status: string
+  message: string
+  data: Drug[]
+  meta: Meta
+  links: Links
+}
+
+export default function DrugsPage() {
   const { token } = useAuth()
-  const toast = useToast()
-  const [orders, setOrders] = useState<Order[]>([])
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>([])
+  const router = useRouter()
+  const [drugs, setDrugs] = useState<Drug[]>([])
+  const [filteredDrugs, setFilteredDrugs] = useState<Drug[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("all")
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
-  const { isOpen: isViewOpen, onOpen: onViewOpen, onClose: onViewClose } = useDisclosure()
   const [currentPage, setCurrentPage] = useState(1)
-  const [pagination, setPagination] = useState({
-    currentPage: 1,
-    totalPages: 1,
-    totalItems: 0,
-    from: 0,
-    to: 0,
-  })
+  const [meta, setMeta] = useState<Meta | null>(null)
+  const [links, setLinks] = useState<Links | null>(null)
+  const [rowsPerPage, setRowsPerPage] = useState(10)
+  // Add a new state to track the input value
+  const [rowsPerPageInput, setRowsPerPageInput] = useState(rowsPerPage.toString())
 
   useEffect(() => {
-    // Fetch orders from the API
-    const fetchOrders = async () => {
+    // Fetch drugs from the API
+    const fetchDrugs = async () => {
       setIsLoading(true)
       try {
-        const response = await api.get<OrdersResponse>(`/admin/orders?page=${currentPage}`)
-
-        if (response.data.status === "success") {
-          setOrders(response.data.data)
-          setFilteredOrders(response.data.data)
-
-          // Set pagination data
-          setPagination({
-            currentPage: response.data.meta.current_page,
-            totalPages: response.data.meta.last_page,
-            totalItems: response.data.meta.total,
-            from: response.data.meta.from,
-            to: response.data.meta.to,
-          })
-        } else {
-          throw new Error("Failed to fetch orders")
-        }
+        const response = await api.get<DrugsResponse>(`/drugs?page=${currentPage}&per_page=${rowsPerPage}`)
+        setDrugs(response.data.data)
+        setFilteredDrugs(response.data.data)
+        setMeta(response.data.meta)
+        setLinks(response.data.links)
       } catch (error) {
-        console.error("Error fetching orders:", error)
-        toast({
-          title: "Error",
-          description: "Failed to fetch orders. Please try again later.",
-          status: "error",
-          duration: 3000,
-          isClosable: true,
-        })
+        console.error("Error fetching drugs:", error)
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchOrders()
-  }, [currentPage, token, toast])
+    fetchDrugs()
+  }, [currentPage, rowsPerPage, token])
 
   useEffect(() => {
-    // Filter orders based on search term and active tab
-    let filtered = orders
+    // Filter drugs based on search term and active tab
+    let filtered = [...drugs] // Create a new array to avoid reference issues
+
+    console.log("Current tab:", activeTab)
+    console.log("Total drugs before filtering:", drugs.length)
+    console.log("Stock values:", drugs.map((d) => `${d.name}: ${d.stock}`).join(", "))
 
     // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter(
-        (order) =>
-          order.id.toString().includes(searchTerm) ||
-          (order.user?.name && order.user.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (order.user?.email && order.user.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (order.drug?.name && order.drug.name.toLowerCase().includes(searchTerm.toLowerCase())),
+        (drug) =>
+          drug.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          drug.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          drug.category.toLowerCase().includes(searchTerm.toLowerCase()),
       )
     }
 
     // Apply tab filter
-    if (activeTab !== "all") {
-      filtered = filtered.filter((order) => order.status === activeTab)
+    if (activeTab === "low-stock") {
+      // Debug the stock values to ensure they're numbers
+      console.log(
+        "Stock values (before filtering):",
+        filtered.map((d) => `${d.name}: ${typeof d.stock} ${d.stock}`),
+      )
+
+      // Use a more explicit approach to filtering low stock
+      filtered = filtered.filter((drug) => {
+        const stockNum = Number.parseInt(String(drug.stock), 10)
+        const isLowStock = stockNum <= 10 // Increased threshold to catch more items
+        console.log(`Drug ${drug.name} stock: ${stockNum}, isLowStock: ${isLowStock}`)
+        return isLowStock
+      })
+
+      console.log("Low stock drugs after filtering:", filtered.length)
+    } else if (activeTab === "prescription") {
+      filtered = filtered.filter((drug) => drug.prescription_needed)
+    } else if (activeTab === "expiring-soon") {
+      // Filter drugs expiring in the next 3 months
+      const threeMonthsFromNow = new Date()
+      threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3)
+
+      filtered = filtered.filter((drug) => {
+        const expiryDate = new Date(drug.expires_at)
+        return expiryDate <= threeMonthsFromNow
+      })
     }
 
-    setFilteredOrders(filtered)
-  }, [searchTerm, activeTab, orders])
-
-  // Helper function to handle null values
-  const formatValue = (value: string | number | null | undefined): string => {
-    if (value === null || value === undefined || value === "") {
-      return "-"
-    }
-    return String(value)
-  }
-
-  const viewOrderDetails = (order: Order) => {
-    setSelectedOrder(order)
-    onViewOpen()
-  }
-
-  const getStatusBadgeColor = (status: Order["status"]) => {
-    switch (status) {
-      case "pending":
-        return "yellow"
-      case "processing":
-        return "blue"
-      case "shipped":
-        return "purple"
-      case "delivered":
-        return "green"
-      case "cancelled":
-        return "red"
-      case "paid":
-        return "green"
-      default:
-        return "gray"
-    }
-  }
+    console.log("Filtered drugs count:", filtered.length)
+    setFilteredDrugs(filtered)
+  }, [searchTerm, activeTab, drugs])
 
   const handleNextPage = () => {
-    if (currentPage < pagination.totalPages) {
+    if (meta && currentPage < meta.last_page) {
       setCurrentPage(currentPage + 1)
     }
   }
@@ -212,30 +190,89 @@ export default function OrdersPage() {
     }
   }
 
-  const formatDate = (dateString: string | null) => {
+  // Helper function to handle null values
+  const formatValue = (value: string | number | null | undefined): string => {
+    if (value === null || value === undefined || value === "") return "-"
+    return String(value)
+  }
+
+  const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "-"
 
-    const date = new Date(dateString)
-    return date.toLocaleDateString("en-US", {
+    const options: Intl.DateTimeFormatOptions = {
       year: "numeric",
       month: "short",
       day: "numeric",
-    })
+    }
+    return new Date(dateString).toLocaleDateString(undefined, options)
+  }
+
+  const formatCurrency = (amount: number | null | undefined) => {
+    if (amount === null || amount === undefined) return "-"
+
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "ETB",
+    }).format(amount)
+  }
+
+  const getStockStatusColor = (stock: number | string) => {
+    // Ensure we're working with a number
+    const stockNum = Number.parseInt(String(stock), 10)
+    console.log(`Stock color for ${stockNum}: ${stockNum <= 10 ? "red" : stockNum <= 20 ? "yellow" : "green"}`)
+    if (stockNum <= 10) return "red"
+    if (stockNum <= 20) return "yellow"
+    return "green"
   }
 
   if (isLoading) {
-    return <OrdersSkeleton />
+    return <DrugsSkeleton />
   }
 
   return (
     <Box>
       <Stack spacing={6}>
-        <Box>
-          <Heading as="h1" size="lg" mb={1}>
-            Orders
-          </Heading>
-          <Text color="gray.600">Manage and process customer orders</Text>
-        </Box>
+        <Flex
+          direction={{ base: "column", sm: "row" }}
+          align={{ sm: "center" }}
+          justify={{ sm: "space-between" }}
+          gap={4}
+        >
+          <Box>
+            <Heading as="h1" size="md" mb={1}>
+              Drugs {activeTab !== "all" && `(${activeTab})`}
+            </Heading>
+            <Text color="gray.600">View medications and inventory</Text>
+          </Box>
+          {meta && (
+            <HStack spacing={4}>
+              <Flex direction="column" align="center" bg="blue.50" p={3} borderRadius="md" minW="120px">
+                <Text fontSize="sm" color="blue.600">
+                  Total Drugs
+                </Text>
+                <Text fontWeight="bold" fontSize="xl">
+                  {meta.total}
+                </Text>
+              </Flex>
+              <Flex direction="column" align="center" bg="blue.50" p={3} borderRadius="md" minW="120px">
+                <Text fontSize="sm" color="blue.600">
+                  Total Stock
+                </Text>
+                <Text fontWeight="bold" fontSize="xl">
+                  {meta.total_stock || "-"}
+                </Text>
+              </Flex>
+              <Flex direction="column" align="center" bg="blue.50" p={3} borderRadius="md" minW="120px">
+                <Text fontSize="sm" color="blue.600">
+                  Low Stock
+                </Text>
+                <Text fontWeight="bold" fontSize="xl">
+                  {meta.low_stock_count || 0}
+                </Text>
+              </Flex>
+            </HStack>
+          )}
+        </Flex>
 
         <Card>
           <CardHeader pb={3}>
@@ -247,12 +284,12 @@ export default function OrdersPage() {
             >
               <Box position="relative" w={{ base: "full", sm: "72" }}>
                 <InputGroup>
-                  <InputLeftElement pointerEvents="none">
+                  <ChakraInputLeftElement pointerEvents="none">
                     <Search size={16} color="gray.500" />
-                  </InputLeftElement>
+                  </ChakraInputLeftElement>
                   <Input
                     type="search"
-                    placeholder="Search orders..."
+                    placeholder="Search drugs..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
@@ -262,18 +299,20 @@ export default function OrdersPage() {
                 variant="soft-rounded"
                 colorScheme="blue"
                 w={{ base: "full", sm: "auto" }}
+                defaultIndex={0}
+                index={["all", "low-stock", "prescription", "expiring-soon"].indexOf(activeTab)}
                 onChange={(index) => {
-                  const tabValues = ["all", "pending", "processing", "shipped", "delivered", "paid"]
-                  setActiveTab(tabValues[index])
+                  const tabValues = ["all", "low-stock", "prescription", "expiring-soon"]
+                  const newTab = tabValues[index]
+                  console.log("Tab changed to:", newTab)
+                  setActiveTab(newTab)
                 }}
               >
                 <TabList>
-                  <Tab>All Orders</Tab>
-                  <Tab>Pending</Tab>
-                  <Tab>Processing</Tab>
-                  <Tab>Shipped</Tab>
-                  <Tab>Delivered</Tab>
-                  <Tab>Paid</Tab>
+                  <Tab>All Drugs</Tab>
+                  <Tab>Low Stock</Tab>
+                  <Tab>Prescription</Tab>
+                  <Tab>Expiring Soon</Tab>
                 </TabList>
               </Tabs>
             </Flex>
@@ -283,58 +322,94 @@ export default function OrdersPage() {
               <Table variant="simple" size="sm">
                 <Thead>
                   <Tr>
-                    <Th>Order ID</Th>
-                    <Th>Customer</Th>
-                    <Th>Medication</Th>
-                    <Th>Date</Th>
-                    <Th isNumeric>Total</Th>
-                    <Th>Status</Th>
-                    <Th>View</Th>
+                    <Th>Drug</Th>
+                    <Th>Brand</Th>
+                    <Th>Category</Th>
+                    <Th>Dosage</Th>
+                    <Th isNumeric>Price</Th>
+                    <Th isNumeric>Stock</Th>
+                    <Th>Expires</Th>
+                    <Th>Prescription</Th>
+                    <Th>Added By</Th>
+                    <Th>Actions</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {filteredOrders.length === 0 ? (
+                  {filteredDrugs.length === 0 ? (
                     <Tr>
-                      <Td colSpan={7} textAlign="center" py={6} color="gray.500">
-                        No orders found
+                      <Td colSpan={9} textAlign="center" py={6} color="gray.500">
+                        No drugs found
                       </Td>
                     </Tr>
                   ) : (
-                    filteredOrders.map((order) => (
-                      <Tr key={order.id}>
-                        <Td>#{order.id}</Td>
+                    filteredDrugs.map((drug) => (
+                      <Tr key={drug.id}>
                         <Td>
-                          <Box>
-                            <Text fontWeight="medium">{formatValue(order.user?.name)}</Text>
-                            <Text fontSize="sm" color="gray.500">
-                              {formatValue(order.user?.email)}
-                            </Text>
-                          </Box>
+                          <Flex align="center">
+                            <Image
+                              src={drug.image || "/placeholder.svg"}
+                              alt={drug.name}
+                              boxSize="32px"
+                              borderRadius="md"
+                              mr={2}
+                              objectFit="cover"
+                              fallbackSrc="/placeholder.svg"
+                            />
+                            <Text fontWeight="medium">{formatValue(drug.name)}</Text>
+                          </Flex>
+                        </Td>
+                        <Td>{formatValue(drug.brand)}</Td>
+                        <Td>{formatValue(drug.category)}</Td>
+                        <Td>{formatValue(drug.dosage)}</Td>
+                        <Td isNumeric>{formatCurrency(drug.price)}</Td>
+                        <Td isNumeric>
+                          <Badge colorScheme={getStockStatusColor(drug.stock)}>{formatValue(drug.stock)}</Badge>
+                        </Td>
+                        <Td>{formatDate(drug.expires_at)}</Td>
+                        <Td>
+                          {drug.prescription_needed ? (
+                            <Badge colorScheme="red">Required</Badge>
+                          ) : (
+                            <Badge colorScheme="green">Not Required</Badge>
+                          )}
                         </Td>
                         <Td>
-                          <Box>
-                            <Text fontWeight="medium">{formatValue(order.drug?.name)}</Text>
-                            <Text fontSize="sm" color="gray.500">
-                              Qty: {order.quantity}
-                            </Text>
-                          </Box>
-                        </Td>
-                        <Td>{formatDate(order.created_at)}</Td>
-                        <Td isNumeric>${Number(order.total_amount).toFixed(2)}</Td>
-                        <Td>
-                          <Badge colorScheme={getStatusBadgeColor(order.status)}>
-                            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                          </Badge>
-                        </Td>
-                        <Td>
-                          <Button
-                            leftIcon={<Eye size={16} />}
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => viewOrderDetails(order)}
+                          <Flex
+                            align="center"
+                            onClick={(e) => {
+                              e.stopPropagation() // Prevent triggering the row click
+                              if (drug.creator?.id) {
+                                router.push(`/dashboard/pharmacists/${drug.creator.id}`)
+                              }
+                            }}
+                            cursor={drug.creator?.id ? "pointer" : "default"}
+                            _hover={{
+                              color: drug.creator?.id ? "blue.500" : "inherit",
+                              textDecoration: drug.creator?.id ? "underline" : "none",
+                            }}
                           >
+                            <Avatar
+                              size="xs"
+                              name={drug.creator?.name}
+                              src={drug.creator?.profile_image || undefined}
+                              mr={2}
+                            />
+                            <Text fontSize="xs">{formatValue(drug.creator?.name)}</Text>
+                          </Flex>
+                        </Td>
+                        <Td>
+                          <Text
+                            color="blue.500"
+                            fontWeight="medium"
+                            cursor="pointer"
+                            display="flex"
+                            alignItems="center"
+                            onClick={() => router.push(`/dashboard/drugs/${drug.id}`)}
+                            _hover={{ textDecoration: "underline" }}
+                          >
+                            <Eye size={16} style={{ marginRight: "6px" }} />
                             View
-                          </Button>
+                          </Text>
                         </Td>
                       </Tr>
                     ))
@@ -342,10 +417,54 @@ export default function OrdersPage() {
                 </Tbody>
               </Table>
             </Box>
-            {pagination.totalItems > 0 && (
-              <Flex justify="space-between" align="center" mt={4}>
+            {meta && (
+              <Flex justify="space-between" align="center" mt={4} wrap="wrap" gap={4}>
+                <HStack>
+                  <Text fontSize="sm" whiteSpace="nowrap">
+                    Rows per page:
+                  </Text>
+                  <InputGroup size="sm" width="80px">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={rowsPerPageInput}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        if (value === "" || (Number(value) > 0 && Number(value) <= 100)) {
+                          setRowsPerPageInput(value)
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const value = Number(rowsPerPageInput)
+                          if (value > 0 && value <= 100) {
+                            setRowsPerPage(value)
+                            setCurrentPage(1) // Reset to first page when changing rows per page
+                          }
+                        }
+                      }}
+                    />
+                    <InputRightElement>
+                      <IconButton
+                        aria-label="Apply rows per page"
+                        icon={<Check size={16} />}
+                        size="xs"
+                        colorScheme="blue"
+                        variant="ghost"
+                        onClick={() => {
+                          const value = Number(rowsPerPageInput)
+                          if (value > 0 && value <= 100) {
+                            setRowsPerPage(value)
+                            setCurrentPage(1) // Reset to first page when changing rows per page
+                          }
+                        }}
+                      />
+                    </InputRightElement>
+                  </InputGroup>
+                </HStack>
                 <Text fontSize="sm">
-                  Showing {pagination.from || 0} to {pagination.to || 0} of {pagination.totalItems || 0} orders
+                  Showing {meta.from} to {meta.to} of {meta.total} drugs
                 </Text>
                 <HStack>
                   <Button
@@ -357,13 +476,13 @@ export default function OrdersPage() {
                     Previous
                   </Button>
                   <Text fontSize="sm">
-                    Page {pagination.currentPage || 1} of {pagination.totalPages || 1}
+                    Page {meta.current_page} of {meta.last_page}
                   </Text>
                   <Button
                     size="sm"
                     rightIcon={<ChevronRight size={16} />}
                     onClick={handleNextPage}
-                    isDisabled={currentPage === pagination.totalPages}
+                    isDisabled={meta.current_page === meta.last_page}
                   >
                     Next
                   </Button>
@@ -373,120 +492,29 @@ export default function OrdersPage() {
           </CardBody>
         </Card>
       </Stack>
-
-      {/* View Order Modal */}
-      <Modal isOpen={isViewOpen} onClose={onViewClose} size="xl">
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Order #{selectedOrder?.id}</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            {selectedOrder && (
-              <Stack spacing={6}>
-                <Grid templateColumns="repeat(2, 1fr)" gap={4}>
-                  <Box>
-                    <Text fontSize="sm" fontWeight="medium" mb={1}>
-                      Customer
-                    </Text>
-                    <Text fontSize="sm">{formatValue(selectedOrder.user?.name)}</Text>
-                    <Text fontSize="sm" color="gray.500">
-                      {formatValue(selectedOrder.user?.email)}
-                    </Text>
-                    {selectedOrder.user?.phone && (
-                      <Text fontSize="sm" color="gray.500">
-                        Phone: {selectedOrder.user.phone}
-                      </Text>
-                    )}
-                    {selectedOrder.user?.address && (
-                      <Text fontSize="sm" color="gray.500">
-                        Address: {selectedOrder.user.address}
-                      </Text>
-                    )}
-                  </Box>
-                  <Box>
-                    <Text fontSize="sm" fontWeight="medium" mb={1}>
-                      Order Info
-                    </Text>
-                    <Text fontSize="sm">Date: {formatDate(selectedOrder.created_at)}</Text>
-                    <Flex align="center" gap={1}>
-                      <Text fontSize="sm">Status:</Text>
-                      <Badge colorScheme={getStatusBadgeColor(selectedOrder.status)}>
-                        {selectedOrder.status.charAt(0).toUpperCase() + selectedOrder.status.slice(1)}
-                      </Badge>
-                    </Flex>
-                  </Box>
-                </Grid>
-
-                <Box>
-                  <Text fontSize="sm" fontWeight="medium" mb={2}>
-                    Order Details
-                  </Text>
-                  <Box borderWidth="1px" borderRadius="md">
-                    <Table variant="simple" size="sm">
-                      <Thead>
-                        <Tr>
-                          <Th>Item</Th>
-                          <Th textAlign="center">Quantity</Th>
-                          <Th isNumeric>Price</Th>
-                          <Th isNumeric>Subtotal</Th>
-                        </Tr>
-                      </Thead>
-                      <Tbody>
-                        <Tr>
-                          <Td>{formatValue(selectedOrder.drug?.name)}</Td>
-                          <Td textAlign="center">{selectedOrder.quantity}</Td>
-                          <Td isNumeric>${selectedOrder.drug?.price.toFixed(2) || "-"}</Td>
-                          <Td isNumeric>${Number(selectedOrder.total_amount).toFixed(2)}</Td>
-                        </Tr>
-                        <Tr>
-                          <Td colSpan={3} textAlign="right" fontWeight="medium">
-                            Total:
-                          </Td>
-                          <Td isNumeric fontWeight="medium">
-                            ${Number(selectedOrder.total_amount).toFixed(2)}
-                          </Td>
-                        </Tr>
-                      </Tbody>
-                    </Table>
-                  </Box>
-                </Box>
-
-                {selectedOrder.prescription_image && (
-                  <Box>
-                    <Text fontSize="sm" fontWeight="medium" mb={2}>
-                      Prescription
-                    </Text>
-                    <Image
-                      src={selectedOrder.prescription_image || "/placeholder.svg"}
-                      alt="Prescription"
-                      borderRadius="md"
-                      maxH="300px"
-                      mx="auto"
-                    />
-                  </Box>
-                )}
-
-                <Flex justify="center">
-                  <Button variant="outline" onClick={onViewClose}>
-                    Close
-                  </Button>
-                </Flex>
-              </Stack>
-            )}
-          </ModalBody>
-        </ModalContent>
-      </Modal>
     </Box>
   )
 }
 
-function OrdersSkeleton() {
+function DrugsSkeleton() {
   return (
     <Stack spacing={6}>
-      <Box>
-        <Skeleton height="32px" width="120px" mb={1} />
-        <Skeleton height="18px" width="300px" />
-      </Box>
+      <Flex
+        direction={{ base: "column", sm: "row" }}
+        align={{ sm: "center" }}
+        justify={{ sm: "space-between" }}
+        gap={4}
+      >
+        <Box>
+          <Skeleton height="32px" width="100px" />
+          <Skeleton height="18px" width="250px" mt={2} />
+        </Box>
+        <HStack spacing={4}>
+          <Skeleton height="70px" width="120px" />
+          <Skeleton height="70px" width="120px" />
+          <Skeleton height="70px" width="120px" />
+        </HStack>
+      </Flex>
 
       <Card>
         <CardHeader pb={3}>
@@ -497,7 +525,7 @@ function OrdersSkeleton() {
             gap={4}
           >
             <Skeleton height="40px" width={{ base: "full", sm: "250px" }} />
-            <Skeleton height="40px" width={{ base: "full", sm: "350px" }} />
+            <Skeleton height="40px" width={{ base: "full", sm: "300px" }} />
           </Flex>
         </CardHeader>
         <CardBody>
@@ -505,11 +533,13 @@ function OrdersSkeleton() {
             <Table variant="simple" size="sm">
               <Thead>
                 <Tr>
-                  {["Order ID", "Customer", "Medication", "Date", "Total", "Status", "View"].map((header) => (
-                    <Th key={header}>
-                      <Skeleton height="14px" width="80%" />
-                    </Th>
-                  ))}
+                  {["Drug", "Brand", "Category", "Dosage", "Price", "Stock", "Expires", "Prescription", "Added By"].map(
+                    (header) => (
+                      <Th key={header}>
+                        <Skeleton height="14px" width="80%" />
+                      </Th>
+                    ),
+                  )}
                 </Tr>
               </Thead>
               <Tbody>
@@ -518,31 +548,37 @@ function OrdersSkeleton() {
                   .map((_, i) => (
                     <Tr key={i}>
                       <Td>
+                        <Flex align="center">
+                          <Skeleton height="32px" width="32px" borderRadius="md" mr={2} />
+                          <Skeleton height="16px" width="120px" />
+                        </Flex>
+                      </Td>
+                      <Td>
+                        <Skeleton height="16px" width="100px" />
+                      </Td>
+                      <Td>
+                        <Skeleton height="16px" width="90px" />
+                      </Td>
+                      <Td>
+                        <Skeleton height="16px" width="70px" />
+                      </Td>
+                      <Td isNumeric>
                         <Skeleton height="16px" width="60px" />
                       </Td>
-                      <Td>
-                        <Box>
-                          <Skeleton height="16px" width="120px" mb={1} />
-                          <Skeleton height="14px" width="150px" />
-                        </Box>
-                      </Td>
-                      <Td>
-                        <Box>
-                          <Skeleton height="16px" width="100px" mb={1} />
-                          <Skeleton height="14px" width="60px" />
-                        </Box>
+                      <Td isNumeric>
+                        <Skeleton height="20px" width="50px" borderRadius="full" />
                       </Td>
                       <Td>
                         <Skeleton height="16px" width="80px" />
                       </Td>
-                      <Td isNumeric>
-                        <Skeleton height="16px" width="70px" />
+                      <Td>
+                        <Skeleton height="20px" width="80px" borderRadius="full" />
                       </Td>
                       <Td>
-                        <Skeleton height="20px" width="70px" borderRadius="full" />
-                      </Td>
-                      <Td>
-                        <Skeleton height="32px" width="60px" />
+                        <Flex align="center">
+                          <Skeleton height="24px" width="24px" borderRadius="full" mr={2} />
+                          <Skeleton height="16px" width="80px" />
+                        </Flex>
                       </Td>
                     </Tr>
                   ))}

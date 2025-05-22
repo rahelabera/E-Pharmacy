@@ -12,7 +12,7 @@ import {
   Heading,
   Input,
   InputGroup,
-  InputLeftElement,
+  InputRightElement,
   Skeleton,
   Stack,
   Tab,
@@ -29,8 +29,11 @@ import {
   HStack,
   Image,
   Avatar,
+  IconButton,
+  InputLeftElement as ChakraInputLeftElement,
 } from "@chakra-ui/react"
-import { Search, ChevronLeft, ChevronRight } from "lucide-react"
+// Import the Check icon
+import { Search, ChevronLeft, ChevronRight, Eye, Check } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import api from "@/lib/api"
 
@@ -99,13 +102,16 @@ export default function DrugsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [meta, setMeta] = useState<Meta | null>(null)
   const [links, setLinks] = useState<Links | null>(null)
+  const [rowsPerPage, setRowsPerPage] = useState(10)
+  // Add a new state to track the input value
+  const [rowsPerPageInput, setRowsPerPageInput] = useState(rowsPerPage.toString())
 
   useEffect(() => {
     // Fetch drugs from the API
     const fetchDrugs = async () => {
       setIsLoading(true)
       try {
-        const response = await api.get<DrugsResponse>(`/drugs?page=${currentPage}`)
+        const response = await api.get<DrugsResponse>(`/drugs?page=${currentPage}&per_page=${rowsPerPage}`)
         setDrugs(response.data.data)
         setFilteredDrugs(response.data.data)
         setMeta(response.data.meta)
@@ -118,7 +124,7 @@ export default function DrugsPage() {
     }
 
     fetchDrugs()
-  }, [currentPage, token])
+  }, [currentPage, rowsPerPage, token])
 
   useEffect(() => {
     // Filter drugs based on search term and active tab
@@ -233,7 +239,7 @@ export default function DrugsPage() {
           gap={4}
         >
           <Box>
-            <Heading as="h1" size="lg" mb={1}>
+            <Heading as="h1" size="md" mb={1}>
               Drugs {activeTab !== "all" && `(${activeTab})`}
             </Heading>
             <Text color="gray.600">View medications and inventory</Text>
@@ -248,16 +254,16 @@ export default function DrugsPage() {
                   {meta.total}
                 </Text>
               </Flex>
-              <Flex direction="column" align="center" bg="green.50" p={3} borderRadius="md" minW="120px">
-                <Text fontSize="sm" color="green.600">
+              <Flex direction="column" align="center" bg="blue.50" p={3} borderRadius="md" minW="120px">
+                <Text fontSize="sm" color="blue.600">
                   Total Stock
                 </Text>
                 <Text fontWeight="bold" fontSize="xl">
                   {meta.total_stock || "-"}
                 </Text>
               </Flex>
-              <Flex direction="column" align="center" bg="red.50" p={3} borderRadius="md" minW="120px">
-                <Text fontSize="sm" color="red.600">
+              <Flex direction="column" align="center" bg="blue.50" p={3} borderRadius="md" minW="120px">
+                <Text fontSize="sm" color="blue.600">
                   Low Stock
                 </Text>
                 <Text fontWeight="bold" fontSize="xl">
@@ -278,9 +284,9 @@ export default function DrugsPage() {
             >
               <Box position="relative" w={{ base: "full", sm: "72" }}>
                 <InputGroup>
-                  <InputLeftElement pointerEvents="none">
+                  <ChakraInputLeftElement pointerEvents="none">
                     <Search size={16} color="gray.500" />
-                  </InputLeftElement>
+                  </ChakraInputLeftElement>
                   <Input
                     type="search"
                     placeholder="Search drugs..."
@@ -325,6 +331,7 @@ export default function DrugsPage() {
                     <Th>Expires</Th>
                     <Th>Prescription</Th>
                     <Th>Added By</Th>
+                    <Th>Actions</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
@@ -336,11 +343,7 @@ export default function DrugsPage() {
                     </Tr>
                   ) : (
                     filteredDrugs.map((drug) => (
-                      <Tr
-                        key={drug.id}
-                        _hover={{ bg: "gray.50", cursor: "pointer" }}
-                        onClick={() => router.push(`/dashboard/drugs/${drug.id}`)}
-                      >
+                      <Tr key={drug.id}>
                         <Td>
                           <Flex align="center">
                             <Image
@@ -371,7 +374,20 @@ export default function DrugsPage() {
                           )}
                         </Td>
                         <Td>
-                          <Flex align="center">
+                          <Flex
+                            align="center"
+                            onClick={(e) => {
+                              e.stopPropagation() // Prevent triggering the row click
+                              if (drug.creator?.id) {
+                                router.push(`/dashboard/pharmacists/${drug.creator.id}`)
+                              }
+                            }}
+                            cursor={drug.creator?.id ? "pointer" : "default"}
+                            _hover={{
+                              color: drug.creator?.id ? "blue.500" : "inherit",
+                              textDecoration: drug.creator?.id ? "underline" : "none",
+                            }}
+                          >
                             <Avatar
                               size="xs"
                               name={drug.creator?.name}
@@ -381,6 +397,20 @@ export default function DrugsPage() {
                             <Text fontSize="xs">{formatValue(drug.creator?.name)}</Text>
                           </Flex>
                         </Td>
+                        <Td>
+                          <Text
+                            color="blue.500"
+                            fontWeight="medium"
+                            cursor="pointer"
+                            display="flex"
+                            alignItems="center"
+                            onClick={() => router.push(`/dashboard/drugs/${drug.id}`)}
+                            _hover={{ textDecoration: "underline" }}
+                          >
+                            <Eye size={16} style={{ marginRight: "6px" }} />
+                            View
+                          </Text>
+                        </Td>
                       </Tr>
                     ))
                   )}
@@ -388,7 +418,51 @@ export default function DrugsPage() {
               </Table>
             </Box>
             {meta && (
-              <Flex justify="space-between" align="center" mt={4}>
+              <Flex justify="space-between" align="center" mt={4} wrap="wrap" gap={4}>
+                <HStack>
+                  <Text fontSize="sm" whiteSpace="nowrap">
+                    Rows per page:
+                  </Text>
+                  <InputGroup size="sm" width="80px">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={rowsPerPageInput}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        if (value === "" || (Number(value) > 0 && Number(value) <= 100)) {
+                          setRowsPerPageInput(value)
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const value = Number(rowsPerPageInput)
+                          if (value > 0 && value <= 100) {
+                            setRowsPerPage(value)
+                            setCurrentPage(1) // Reset to first page when changing rows per page
+                          }
+                        }
+                      }}
+                    />
+                    <InputRightElement>
+                      <IconButton
+                        aria-label="Apply rows per page"
+                        icon={<Check size={16} />}
+                        size="xs"
+                        colorScheme="blue"
+                        variant="ghost"
+                        onClick={() => {
+                          const value = Number(rowsPerPageInput)
+                          if (value > 0 && value <= 100) {
+                            setRowsPerPage(value)
+                            setCurrentPage(1) // Reset to first page when changing rows per page
+                          }
+                        }}
+                      />
+                    </InputRightElement>
+                  </InputGroup>
+                </HStack>
                 <Text fontSize="sm">
                   Showing {meta.from} to {meta.to} of {meta.total} drugs
                 </Text>

@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import {
   Box,
@@ -11,6 +13,7 @@ import {
   Input,
   InputGroup,
   InputLeftElement,
+  InputRightElement,
   Skeleton,
   Stack,
   Tab,
@@ -26,8 +29,12 @@ import {
   Badge,
   useToast,
   Avatar,
+  Button,
+  HStack,
+  IconButton,
 } from "@chakra-ui/react"
-import { Search, MapPin } from "lucide-react"
+// Import the Check icon
+import { Search, MapPin, ChevronLeft, ChevronRight, Eye, Check } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import api from "@/lib/api"
 import { useRouter } from "next/navigation"
@@ -94,11 +101,18 @@ export default function PharmacistsPage() {
   const [activeTab, setActiveTab] = useState("all")
   const [tabIndex, setTabIndex] = useState(0)
   const router = useRouter()
+  const [currentPage, setCurrentPage] = useState(1)
+  const [rowsPerPage, setRowsPerPage] = useState(10)
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
     totalItems: 0,
+    from: 0,
+    to: 0,
   })
+
+  // Add a new state to track the input value
+  const [rowsPerPageInput, setRowsPerPageInput] = useState(rowsPerPage.toString())
 
   useEffect(() => {
     // Check if there's a selected tab in localStorage
@@ -120,9 +134,9 @@ export default function PharmacistsPage() {
     const fetchPharmacists = async () => {
       setIsLoading(true)
       try {
-        const response = await api.get<PharmacistsResponse>("/admin/pharmacists/all")
-
-        console.log("Pharmacists API response:", response.data) // For debugging
+        const response = await api.get<PharmacistsResponse>(
+          `/admin/pharmacists/all?page=${currentPage}&per_page=${rowsPerPage}`,
+        )
 
         if (response.data.status === "success" && response.data.data) {
           const pharmacistsData = response.data.data.data || []
@@ -134,6 +148,8 @@ export default function PharmacistsPage() {
             currentPage: response.data.data.current_page,
             totalPages: response.data.data.last_page,
             totalItems: response.data.data.total,
+            from: response.data.data.from,
+            to: response.data.data.to,
           })
         } else {
           throw new Error("Failed to fetch pharmacists")
@@ -156,7 +172,7 @@ export default function PharmacistsPage() {
     }
 
     fetchPharmacists()
-  }, [token, toast])
+  }, [token, toast, currentPage, rowsPerPage])
 
   useEffect(() => {
     // Filter pharmacists based on search term and active tab
@@ -223,6 +239,23 @@ export default function PharmacistsPage() {
     setTabIndex(index)
   }
 
+  const handleNextPage = () => {
+    if (currentPage < pagination.totalPages) {
+      setCurrentPage(currentPage + 1)
+    }
+  }
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1)
+    }
+  }
+
+  const handleRowsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setRowsPerPage(Number(e.target.value))
+    setCurrentPage(1) // Reset to first page when changing rows per page
+  }
+
   if (isLoading) {
     return <PharmacistsSkeleton />
   }
@@ -234,12 +267,12 @@ export default function PharmacistsPage() {
     <Box>
       <Stack spacing={6}>
         <Box>
-          <Heading as="h1" size="lg" mb={1}>
-            Pharmacists
+          <Heading as="h1" size="md" mb={1}>
+            Pharmacies
             {activeTab !== "all" && ` (${activeTab})`}
           </Heading>
           <Text color="gray.600">
-            Manage pharmacist accounts and license verification
+            Manage pharmacy accounts and license verification
             {activeTab === "pending" &&
               pendingCount > 0 &&
               ` • ${pendingCount} pending approval${pendingCount !== 1 ? "s" : ""}`}
@@ -301,24 +334,20 @@ export default function PharmacistsPage() {
                     <Th>Bank Info</Th>
                     <Th>Date Applied</Th>
                     <Th>Status</Th>
+                    <Th>Actions</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
                   {filteredPharmacists.length === 0 ? (
                     <Tr>
-                      <Td colSpan={6} textAlign="center" py={6} color="gray.500">
+                      <Td colSpan={7} textAlign="center" py={6} color="gray.500">
                         No pharmacists found
                         {activeTab !== "all" && ` with status "${activeTab}"`}
                       </Td>
                     </Tr>
                   ) : (
                     filteredPharmacists.map((pharmacist) => (
-                      <Tr
-                        key={pharmacist.id}
-                        onClick={() => viewPharmacistDetails(pharmacist)}
-                        cursor="pointer"
-                        _hover={{ bg: "gray.50" }}
-                      >
+                      <Tr key={pharmacist.id}>
                         <Td>
                           <Flex align="center" gap={3}>
                             <Avatar size="sm" name={pharmacist.name} src={pharmacist.profile_image || undefined} />
@@ -355,6 +384,20 @@ export default function PharmacistsPage() {
                             {pharmacist.status.charAt(0).toUpperCase() + pharmacist.status.slice(1)}
                           </Badge>
                         </Td>
+                        <Td>
+                          <Text
+                            color="blue.500"
+                            fontWeight="medium"
+                            cursor="pointer"
+                            display="flex"
+                            alignItems="center"
+                            onClick={() => viewPharmacistDetails(pharmacist)}
+                            _hover={{ textDecoration: "underline" }}
+                          >
+                            <Eye size={16} style={{ marginRight: "6px" }} />
+                            View
+                          </Text>
+                        </Td>
                       </Tr>
                     ))
                   )}
@@ -362,13 +405,80 @@ export default function PharmacistsPage() {
               </Table>
             </Box>
 
-            {/* Pagination info */}
+            {/* Pagination controls */}
             {pagination.totalItems > 0 && (
-              <Flex justify="space-between" align="center" mt={4}>
+              <Flex justify="space-between" align="center" mt={4} wrap="wrap" gap={4}>
+                <HStack>
+                  <Text fontSize="sm" whiteSpace="nowrap">
+                    Rows per page:
+                  </Text>
+                  <InputGroup size="sm" width="80px">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={rowsPerPageInput}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        if (value === "" || (Number(value) > 0 && Number(value) <= 100)) {
+                          setRowsPerPageInput(value)
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const value = Number(rowsPerPageInput)
+                          if (value > 0 && value <= 100) {
+                            setRowsPerPage(value)
+                            setCurrentPage(1) // Reset to first page when changing rows per page
+                          }
+                        }
+                      }}
+                    />
+                    <InputRightElement>
+                      <IconButton
+                        aria-label="Apply rows per page"
+                        icon={<Check size={16} />}
+                        size="xs"
+                        colorScheme="blue"
+                        variant="ghost"
+                        onClick={() => {
+                          const value = Number(rowsPerPageInput)
+                          if (value > 0 && value <= 100) {
+                            setRowsPerPage(value)
+                            setCurrentPage(1) // Reset to first page when changing rows per page
+                          }
+                        }}
+                      />
+                    </InputRightElement>
+                  </InputGroup>
+                </HStack>
+
                 <Text fontSize="sm">
-                  Showing {filteredPharmacists.length} of {pagination.totalItems} pharmacists
+                  Showing {pagination.from} to {pagination.to} of {pagination.totalItems} pharmacists
                   {activeTab !== "all" && ` with status "${activeTab}"`}
                 </Text>
+
+                <HStack>
+                  <Button
+                    size="sm"
+                    leftIcon={<ChevronLeft size={16} />}
+                    onClick={handlePrevPage}
+                    isDisabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <Text fontSize="sm">
+                    Page {pagination.currentPage} of {pagination.totalPages}
+                  </Text>
+                  <Button
+                    size="sm"
+                    rightIcon={<ChevronRight size={16} />}
+                    onClick={handleNextPage}
+                    isDisabled={currentPage === pagination.totalPages}
+                  >
+                    Next
+                  </Button>
+                </HStack>
               </Flex>
             )}
           </CardBody>
@@ -403,11 +513,13 @@ function PharmacistsSkeleton() {
             <Table variant="simple" size="sm">
               <Thead>
                 <Tr>
-                  {["Pharmacist", "Pharmacy", "Location", "Bank Info", "Date Applied", "Status"].map((header) => (
-                    <Th key={header}>
-                      <Skeleton height="14px" width="80%" />
-                    </Th>
-                  ))}
+                  {["Pharmacist", "Pharmacy", "Location", "Bank Info", "Date Applied", "Status", "Actions"].map(
+                    (header) => (
+                      <Th key={header}>
+                        <Skeleton height="14px" width="80%" />
+                      </Th>
+                    ),
+                  )}
                 </Tr>
               </Thead>
               <Tbody>
@@ -445,11 +557,23 @@ function PharmacistsSkeleton() {
                       <Td>
                         <Skeleton height="20px" width="70px" borderRadius="full" />
                       </Td>
+                      <Td>
+                        <Skeleton height="32px" width="32px" />
+                      </Td>
                     </Tr>
                   ))}
               </Tbody>
             </Table>
           </Box>
+          <Flex justify="space-between" align="center" mt={4}>
+            <Skeleton height="32px" width="150px" />
+            <Skeleton height="16px" width="200px" />
+            <Flex gap={2}>
+              <Skeleton height="32px" width="80px" />
+              <Skeleton height="16px" width="80px" />
+              <Skeleton height="32px" width="80px" />
+            </Flex>
+          </Flex>
         </CardBody>
       </Card>
     </Stack>

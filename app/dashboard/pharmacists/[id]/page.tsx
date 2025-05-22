@@ -44,6 +44,7 @@ type Pharmacist = {
   created_at: string | null
   updated_at: string | null
   license_image: string | null
+  tin_number: string | null
   tin_image: string | null
   account_number: string | null
   bank_name: string | null
@@ -353,18 +354,40 @@ export default function PharmacistDetailPage() {
                 <Text fontWeight="bold">Last Updated:</Text>
                 <Text>{formatDate(pharmacist.updated_at)}</Text>
               </HStack>
+
+              <HStack w="full" justify="space-between">
+                <Text fontWeight="bold">TIN Number:</Text>
+                <Text>{formatValue(pharmacist.tin_number)}</Text>
+              </HStack>
             </VStack>
 
-            {pharmacist.status === "pending" && (
+            <VStack spacing={4} align="stretch" mt={6}>
+              <Button
+                as="a"
+                href={`https://etrade.gov.et/business-license-checker?tin=${pharmacist.tin_number || ""}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                colorScheme="blue"
+                variant="outline"
+                leftIcon={<FiCheckCircle />}
+                mb={2}
+              >
+                Verify License on eTrade
+              </Button>
+            </VStack>
+
+            {(pharmacist.status === "pending" || pharmacist.status === "approved") && (
               <>
                 <Divider my={6} />
                 <Flex justify="space-between">
                   <Button leftIcon={<FiXCircle />} colorScheme="red" onClick={handleRejectPharmacist}>
                     Reject
                   </Button>
-                  <Button leftIcon={<FiCheckCircle />} colorScheme="green" onClick={handleApprovePharmacist}>
-                    Approve
-                  </Button>
+                  {pharmacist.status === "pending" && (
+                    <Button leftIcon={<FiCheckCircle />} colorScheme="green" onClick={handleApprovePharmacist}>
+                      Approve
+                    </Button>
+                  )}
                 </Flex>
               </>
             )}
