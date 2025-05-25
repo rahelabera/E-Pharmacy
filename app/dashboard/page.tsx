@@ -109,7 +109,7 @@ export default function DashboardPage() {
         // This ensures that if one request fails, the others will still complete
         const [drugsRes, pharmacistsRes, patientsRes, ordersRes] = await Promise.allSettled([
           api.get("/drugs"),
-          api.get("/admin/pharmacists/all"),
+          api.get("/admin/pharmacists"),
           api.get("/admin/patients"),
           api.get("/admin/orders"),
         ])

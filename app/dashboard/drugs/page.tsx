@@ -32,7 +32,6 @@ import {
   IconButton,
   InputLeftElement as ChakraInputLeftElement,
 } from "@chakra-ui/react"
-// Import the Check icon
 import { Search, ChevronLeft, ChevronRight, Eye, Check } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import api from "@/lib/api"
@@ -95,7 +94,6 @@ export default function DrugsPage() {
   const { token } = useAuth()
   const router = useRouter()
   const [drugs, setDrugs] = useState<Drug[]>([])
-  const [filteredDrugs, setFilteredDrugs] = useState<Drug[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("all")
@@ -103,17 +101,27 @@ export default function DrugsPage() {
   const [meta, setMeta] = useState<Meta | null>(null)
   const [links, setLinks] = useState<Links | null>(null)
   const [rowsPerPage, setRowsPerPage] = useState(10)
-  // Add a new state to track the input value
   const [rowsPerPageInput, setRowsPerPageInput] = useState(rowsPerPage.toString())
 
   useEffect(() => {
-    // Fetch drugs from the API
+    // Fetch drugs from the API with server-side filtering and pagination
     const fetchDrugs = async () => {
       setIsLoading(true)
       try {
-        const response = await api.get<DrugsResponse>(`/drugs?page=${currentPage}&per_page=${rowsPerPage}`)
+        // Construct query parameters
+        const params = new URLSearchParams({
+          page: currentPage.toString(),
+          per_page: rowsPerPage.toString(),
+        })
+        if (searchTerm) {
+          params.append("search", searchTerm)
+        }
+        if (activeTab !== "all") {
+          params.append("filter", activeTab)
+        }
+
+        const response = await api.get<DrugsResponse>(`/drugs?${params.toString()}`)
         setDrugs(response.data.data)
-        setFilteredDrugs(response.data.data)
         setMeta(response.data.meta)
         setLinks(response.data.links)
       } catch (error) {
@@ -124,59 +132,7 @@ export default function DrugsPage() {
     }
 
     fetchDrugs()
-  }, [currentPage, rowsPerPage, token])
-
-  useEffect(() => {
-    // Filter drugs based on search term and active tab
-    let filtered = [...drugs] // Create a new array to avoid reference issues
-
-    console.log("Current tab:", activeTab)
-    console.log("Total drugs before filtering:", drugs.length)
-    console.log("Stock values:", drugs.map((d) => `${d.name}: ${d.stock}`).join(", "))
-
-    // Apply search filter
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (drug) =>
-          drug.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          drug.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          drug.category.toLowerCase().includes(searchTerm.toLowerCase()),
-      )
-    }
-
-    // Apply tab filter
-    if (activeTab === "low-stock") {
-      // Debug the stock values to ensure they're numbers
-      console.log(
-        "Stock values (before filtering):",
-        filtered.map((d) => `${d.name}: ${typeof d.stock} ${d.stock}`),
-      )
-
-      // Use a more explicit approach to filtering low stock
-      filtered = filtered.filter((drug) => {
-        const stockNum = Number.parseInt(String(drug.stock), 10)
-        const isLowStock = stockNum <= 10 // Increased threshold to catch more items
-        console.log(`Drug ${drug.name} stock: ${stockNum}, isLowStock: ${isLowStock}`)
-        return isLowStock
-      })
-
-      console.log("Low stock drugs after filtering:", filtered.length)
-    } else if (activeTab === "prescription") {
-      filtered = filtered.filter((drug) => drug.prescription_needed)
-    } else if (activeTab === "expiring-soon") {
-      // Filter drugs expiring in the next 3 months
-      const threeMonthsFromNow = new Date()
-      threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3)
-
-      filtered = filtered.filter((drug) => {
-        const expiryDate = new Date(drug.expires_at)
-        return expiryDate <= threeMonthsFromNow
-      })
-    }
-
-    console.log("Filtered drugs count:", filtered.length)
-    setFilteredDrugs(filtered)
-  }, [searchTerm, activeTab, drugs])
+  }, [currentPage, rowsPerPage, searchTerm, activeTab, token])
 
   const handleNextPage = () => {
     if (meta && currentPage < meta.last_page) {
@@ -190,6 +146,11 @@ export default function DrugsPage() {
     }
   }
 
+  // Reset page to 1 when search term or active tab changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, activeTab, rowsPerPage])
+
   // Helper function to handle null values
   const formatValue = (value: string | number | null | undefined): string => {
     if (value === null || value === undefined || value === "") return "-"
@@ -198,7 +159,6 @@ export default function DrugsPage() {
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "-"
-
     const options: Intl.DateTimeFormatOptions = {
       year: "numeric",
       month: "short",
@@ -209,7 +169,6 @@ export default function DrugsPage() {
 
   const formatCurrency = (amount: number | null | undefined) => {
     if (amount === null || amount === undefined) return "-"
-
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "ETB",
@@ -217,9 +176,7 @@ export default function DrugsPage() {
   }
 
   const getStockStatusColor = (stock: number | string) => {
-    // Ensure we're working with a number
     const stockNum = Number.parseInt(String(stock), 10)
-    console.log(`Stock color for ${stockNum}: ${stockNum <= 10 ? "red" : stockNum <= 20 ? "yellow" : "green"}`)
     if (stockNum <= 10) return "red"
     if (stockNum <= 20) return "yellow"
     return "green"
@@ -303,9 +260,7 @@ export default function DrugsPage() {
                 index={["all", "low-stock", "prescription", "expiring-soon"].indexOf(activeTab)}
                 onChange={(index) => {
                   const tabValues = ["all", "low-stock", "prescription", "expiring-soon"]
-                  const newTab = tabValues[index]
-                  console.log("Tab changed to:", newTab)
-                  setActiveTab(newTab)
+                  setActiveTab(tabValues[index])
                 }}
               >
                 <TabList>
@@ -335,14 +290,14 @@ export default function DrugsPage() {
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {filteredDrugs.length === 0 ? (
+                  {drugs.length === 0 ? (
                     <Tr>
-                      <Td colSpan={9} textAlign="center" py={6} color="gray.500">
+                      <Td colSpan={10} textAlign="center" py={6} color="gray.500">
                         No drugs found
                       </Td>
                     </Tr>
                   ) : (
-                    filteredDrugs.map((drug) => (
+                    drugs.map((drug) => (
                       <Tr key={drug.id}>
                         <Td>
                           <Flex align="center">
@@ -377,7 +332,7 @@ export default function DrugsPage() {
                           <Flex
                             align="center"
                             onClick={(e) => {
-                              e.stopPropagation() // Prevent triggering the row click
+                              e.stopPropagation()
                               if (drug.creator?.id) {
                                 router.push(`/dashboard/pharmacists/${drug.creator.id}`)
                               }
@@ -440,7 +395,6 @@ export default function DrugsPage() {
                           const value = Number(rowsPerPageInput)
                           if (value > 0 && value <= 100) {
                             setRowsPerPage(value)
-                            setCurrentPage(1) // Reset to first page when changing rows per page
                           }
                         }
                       }}
@@ -456,7 +410,6 @@ export default function DrugsPage() {
                           const value = Number(rowsPerPageInput)
                           if (value > 0 && value <= 100) {
                             setRowsPerPage(value)
-                            setCurrentPage(1) // Reset to first page when changing rows per page
                           }
                         }}
                       />
@@ -533,7 +486,7 @@ function DrugsSkeleton() {
             <Table variant="simple" size="sm">
               <Thead>
                 <Tr>
-                  {["Drug", "Brand", "Category", "Dosage", "Price", "Stock", "Expires", "Prescription", "Added By"].map(
+                  {["Drug", "Brand", "Category", "Dosage", "Price", "Stock", "Expires", "Prescription", "Added By", "Actions"].map(
                     (header) => (
                       <Th key={header}>
                         <Skeleton height="14px" width="80%" />
@@ -579,6 +532,9 @@ function DrugsSkeleton() {
                           <Skeleton height="24px" width="24px" borderRadius="full" mr={2} />
                           <Skeleton height="16px" width="80px" />
                         </Flex>
+                      </Td>
+                      <Td>
+                        <Skeleton height="16px" width="60px" />
                       </Td>
                     </Tr>
                   ))}

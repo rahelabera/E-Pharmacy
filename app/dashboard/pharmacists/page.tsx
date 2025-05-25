@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import {
   Box,
@@ -33,7 +32,6 @@ import {
   HStack,
   IconButton,
 } from "@chakra-ui/react"
-// Import the Check icon
 import { Search, MapPin, ChevronLeft, ChevronRight, Eye, Check } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import api from "@/lib/api"
@@ -88,21 +86,22 @@ type PharmacistsResponse = {
     prev_page_url: string | null
     to: number
     total: number
+    pending_count?: number // Optional: if server provides this
   }
 }
 
 export default function PharmacistsPage() {
   const { token } = useAuth()
   const toast = useToast()
+  const router = useRouter()
   const [pharmacists, setPharmacists] = useState<Pharmacist[]>([])
-  const [filteredPharmacists, setFilteredPharmacists] = useState<Pharmacist[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("all")
   const [tabIndex, setTabIndex] = useState(0)
-  const router = useRouter()
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(10)
+  const [rowsPerPageInput, setRowsPerPageInput] = useState(rowsPerPage.toString())
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -110,9 +109,7 @@ export default function PharmacistsPage() {
     from: 0,
     to: 0,
   })
-
-  // Add a new state to track the input value
-  const [rowsPerPageInput, setRowsPerPageInput] = useState(rowsPerPage.toString())
+  const [pendingCount, setPendingCount] = useState(0)
 
   useEffect(() => {
     // Check if there's a selected tab in localStorage
@@ -124,26 +121,32 @@ export default function PharmacistsPage() {
         setActiveTab(savedTab)
         setTabIndex(index)
       }
-      // Clear the localStorage value after using it
       localStorage.removeItem("pharmacistsTab")
     }
   }, [])
 
   useEffect(() => {
-    // Fetch pharmacists from the API
+    // Fetch pharmacists from the API with server-side filtering and pagination
     const fetchPharmacists = async () => {
       setIsLoading(true)
       try {
-        const response = await api.get<PharmacistsResponse>(
-          `/admin/pharmacists/all?page=${currentPage}&per_page=${rowsPerPage}`,
-        )
+        // Construct query parameters
+        const params = new URLSearchParams({
+          page: currentPage.toString(),
+          per_page: rowsPerPage.toString(),
+        })
+        if (searchTerm) {
+          params.append("search", searchTerm)
+        }
+        if (activeTab !== "all") {
+          params.append("filter", activeTab)
+        }
+
+        const response = await api.get<PharmacistsResponse>(`/admin/pharmacists/all?page=1?page=1&per_page=10?${params.toString()}`)
 
         if (response.data.status === "success" && response.data.data) {
           const pharmacistsData = response.data.data.data || []
           setPharmacists(pharmacistsData)
-          setFilteredPharmacists(pharmacistsData)
-
-          // Set pagination data
           setPagination({
             currentPage: response.data.data.current_page,
             totalPages: response.data.data.last_page,
@@ -151,6 +154,8 @@ export default function PharmacistsPage() {
             from: response.data.data.from,
             to: response.data.data.to,
           })
+          // Set pending count (preferably from server, fallback to client-side)
+          setPendingCount(response.data.data.pending_count ?? pharmacistsData.filter((p) => p.status === "pending").length)
         } else {
           throw new Error("Failed to fetch pharmacists")
         }
@@ -163,39 +168,20 @@ export default function PharmacistsPage() {
           duration: 5000,
           isClosable: true,
         })
-        // Initialize with empty arrays to prevent undefined errors
         setPharmacists([])
-        setFilteredPharmacists([])
+        setPendingCount(0)
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchPharmacists()
-  }, [token, toast, currentPage, rowsPerPage])
+  }, [token, toast, currentPage, rowsPerPage, searchTerm, activeTab])
 
+  // Reset page to 1 when search term, active tab, or rows per page changes
   useEffect(() => {
-    // Filter pharmacists based on search term and active tab
-    let filtered = pharmacists
-
-    // Apply search filter
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (pharmacist) =>
-          (pharmacist.name && pharmacist.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (pharmacist.email && pharmacist.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (pharmacist.pharmacy_name && pharmacist.pharmacy_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (pharmacist.address && pharmacist.address.toLowerCase().includes(searchTerm.toLowerCase())),
-      )
-    }
-
-    // Apply tab filter
-    if (activeTab !== "all") {
-      filtered = filtered.filter((pharmacist) => pharmacist.status === activeTab)
-    }
-
-    setFilteredPharmacists(filtered)
-  }, [searchTerm, activeTab, pharmacists])
+    setCurrentPage(1)
+  }, [searchTerm, activeTab, rowsPerPage])
 
   // Helper function to handle null values
   const formatValue = (value: string | number | null | undefined): string => {
@@ -224,7 +210,6 @@ export default function PharmacistsPage() {
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "-"
-
     const options: Intl.DateTimeFormatOptions = {
       year: "numeric",
       month: "short",
@@ -251,17 +236,9 @@ export default function PharmacistsPage() {
     }
   }
 
-  const handleRowsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setRowsPerPage(Number(e.target.value))
-    setCurrentPage(1) // Reset to first page when changing rows per page
-  }
-
   if (isLoading) {
     return <PharmacistsSkeleton />
   }
-
-  // Count pending pharmacists
-  const pendingCount = pharmacists.filter((p) => p.status === "pending").length
 
   return (
     <Box>
@@ -273,9 +250,7 @@ export default function PharmacistsPage() {
           </Heading>
           <Text color="gray.600">
             Manage pharmacy accounts and license verification
-            {activeTab === "pending" &&
-              pendingCount > 0 &&
-              ` • ${pendingCount} pending approval${pendingCount !== 1 ? "s" : ""}`}
+            {activeTab === "pending" && pendingCount > 0 && ` • ${pendingCount} pending approval${pendingCount !== 1 ? "s" : ""}`}
           </Text>
         </Box>
 
@@ -338,7 +313,7 @@ export default function PharmacistsPage() {
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {filteredPharmacists.length === 0 ? (
+                  {pharmacists.length === 0 ? (
                     <Tr>
                       <Td colSpan={7} textAlign="center" py={6} color="gray.500">
                         No pharmacists found
@@ -346,7 +321,7 @@ export default function PharmacistsPage() {
                       </Td>
                     </Tr>
                   ) : (
-                    filteredPharmacists.map((pharmacist) => (
+                    pharmacists.map((pharmacist) => (
                       <Tr key={pharmacist.id}>
                         <Td>
                           <Flex align="center" gap={3}>
@@ -405,7 +380,6 @@ export default function PharmacistsPage() {
               </Table>
             </Box>
 
-            {/* Pagination controls */}
             {pagination.totalItems > 0 && (
               <Flex justify="space-between" align="center" mt={4} wrap="wrap" gap={4}>
                 <HStack>
@@ -429,7 +403,6 @@ export default function PharmacistsPage() {
                           const value = Number(rowsPerPageInput)
                           if (value > 0 && value <= 100) {
                             setRowsPerPage(value)
-                            setCurrentPage(1) // Reset to first page when changing rows per page
                           }
                         }
                       }}
@@ -445,7 +418,6 @@ export default function PharmacistsPage() {
                           const value = Number(rowsPerPageInput)
                           if (value > 0 && value <= 100) {
                             setRowsPerPage(value)
-                            setCurrentPage(1) // Reset to first page when changing rows per page
                           }
                         }}
                       />
@@ -558,7 +530,7 @@ function PharmacistsSkeleton() {
                         <Skeleton height="20px" width="70px" borderRadius="full" />
                       </Td>
                       <Td>
-                        <Skeleton height="32px" width="32px" />
+                        <Skeleton height="16px" width="60px" />
                       </Td>
                     </Tr>
                   ))}

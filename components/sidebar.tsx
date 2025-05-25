@@ -134,7 +134,7 @@ export function Sidebar({ isOpen, onClose, isCollapsed, toggleSidebar }: Sidebar
   // Function to fetch pending pharmacists count
   const fetchPendingCount = async () => {
     try {
-      const response = await api.get("/admin/pharmacists/all")
+      const response = await api.get("/admin/pharmacists/all?page=1?page=1&per_page=10")
       if (response.data.status === "success" && response.data.data) {
         const pendingPharmacists = response.data.data.data.filter((pharmacist: any) => pharmacist.status === "pending")
         setPendingCount(pendingPharmacists.length)
@@ -233,7 +233,7 @@ export function Sidebar({ isOpen, onClose, isCollapsed, toggleSidebar }: Sidebar
         transition="0.3s ease"
         bg={useColorModeValue("blue.500", "blue.900")}
         // Set mobile width to 60vw for a smaller sidebar on mobile
-        w={{ base: mobileOpen ? "30vw" : 0, md: isCollapsed ? "60px" : "240px" }}
+        w={{ base: mobileOpen ? "40vw" : 0, md: isCollapsed ? "60px" : "240px" }}
         pos="fixed"
         h="full"
         display={{ base: mobileOpen ? "block" : "none", md: "block" }}

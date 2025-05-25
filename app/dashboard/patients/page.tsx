@@ -27,8 +27,9 @@ import {
   Badge,
   Select,
   Button,
+  IconButton,
+  InputRightElement,
 } from "@chakra-ui/react"
-// Import the Check icon
 import { Search, MapPin, ChevronLeft, ChevronRight, Eye, Check } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import api from "@/lib/api"
@@ -53,12 +54,6 @@ type Patient = {
   updated_at: string | null
   license_image: string | null
   tin_image: string | null
-  // tin_number: string | null
-  // account_number: string | null
-  // bank_name: string | null
-  // license_public_id: string | null
-  // tin_public_id: string | null
-  // google_id: string | null
 }
 
 type PatientsResponse = {
@@ -106,12 +101,12 @@ export default function PatientsPage() {
   const toast = useToast()
   const router = useRouter()
   const [patients, setPatients] = useState<Patient[]>([])
-  const [filteredPatients, setFilteredPatients] = useState<Patient[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   // const [statusFilter, setStatusFilter] = useState("all")
   const [isLoading, setIsLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(10)
+  const [rowsPerPageInput, setRowsPerPageInput] = useState(rowsPerPage.toString())
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -120,28 +115,34 @@ export default function PatientsPage() {
     to: 0,
   })
 
-  // Add a new state to track the input value
-  const [rowsPerPageInput, setRowsPerPageInput] = useState(rowsPerPage.toString())
-
   useEffect(() => {
-    // Fetch patients from the API
+    // Fetch patients from the API with server-side filtering and pagination
     const fetchPatients = async () => {
       setIsLoading(true)
       try {
-        const response = await api.get<PatientsResponse>(`/admin/patients?page=${currentPage}&per_page=${rowsPerPage}`)
+        // Construct query parameters
+        const params = new URLSearchParams({
+          page: currentPage.toString(),
+          per_page: rowsPerPage.toString(),
+        })
+        if (searchTerm) {
+          params.append("search", searchTerm)
+        }
+        // if (statusFilter !== "all") {
+        //   params.append("filter", statusFilter)
+        // }
+
+        const response = await api.get<PatientsResponse>(`/admin/patients?${params.toString()}`)
 
         if (response.data.status === "success") {
           const patientsData = response.data.data.data || []
           setPatients(patientsData)
-          setFilteredPatients(patientsData)
-
-          // Set pagination data
           setPagination({
-            currentPage: response.data.data.current_page,
-            totalPages: response.data.data.last_page,
-            totalItems: response.data.data.total,
-            from: response.data.data.from,
-            to: response.data.data.to,
+            currentPage: response.data.meta.current_page,
+            totalPages: response.data.meta.last_page,
+            totalItems: response.data.meta.total,
+            from: response.data.meta.from,
+            to: response.data.meta.to,
           })
         } else {
           throw new Error("Failed to fetch users")
@@ -161,30 +162,12 @@ export default function PatientsPage() {
     }
 
     fetchPatients()
-  }, [token, toast, currentPage, rowsPerPage])
+  }, [token, toast, currentPage, rowsPerPage, searchTerm /*, statusFilter*/])
 
+  // Reset page to 1 when search term or rows per page changes
   useEffect(() => {
-    // Filter patients based on search term and status
-    let filtered = patients
-
-    // Apply search filter
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (patient) =>
-          (patient.name && patient.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (patient.email && patient.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (patient.phone && patient.phone.includes(searchTerm)) ||
-          (patient.address && patient.address.toLowerCase().includes(searchTerm.toLowerCase())),
-      )
-    }
-
-    // Apply status filter
-    // if (statusFilter !== "all") {
-    //   filtered = filtered.filter((patient) => patient.status === statusFilter)
-    // }
-
-    setFilteredPatients(filtered)
-  }, [searchTerm, patients])
+    setCurrentPage(1)
+  }, [searchTerm, rowsPerPage /*, statusFilter*/])
 
   // Helper function to handle null values
   const formatValue = (value: string | number | null | undefined): string => {
@@ -196,7 +179,6 @@ export default function PatientsPage() {
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "-"
-
     const options: Intl.DateTimeFormatOptions = {
       year: "numeric",
       month: "short",
@@ -204,21 +186,6 @@ export default function PatientsPage() {
     }
     return new Date(dateString).toLocaleDateString(undefined, options)
   }
-
-  // const getStatusColor = (status: string) => {
-  //   switch (status.toLowerCase()) {
-  //     case "active":
-  //     case "approved":
-  //       return "green"
-  //     case "pending":
-  //       return "yellow"
-  //     case "inactive":
-  //     case "rejected":
-  //       return "red"
-  //     default:
-  //       return "gray"
-  //   }
-  // }
 
   const handleNextPage = () => {
     if (currentPage < pagination.totalPages) {
@@ -230,11 +197,6 @@ export default function PatientsPage() {
     if (currentPage > 1) {
       setCurrentPage(currentPage - 1)
     }
-  }
-
-  const handleRowsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setRowsPerPage(Number(e.target.value))
-    setCurrentPage(1) // Reset to first page when changing rows per page
   }
 
   const viewPatientDetails = (patientId: number) => {
@@ -276,7 +238,8 @@ export default function PatientsPage() {
                   />
                 </InputGroup>
               </Box>
-              {/* <Select
+              {/* Uncomment to enable status filter
+              <Select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 w={{ base: "full", sm: "auto" }}
@@ -286,7 +249,8 @@ export default function PatientsPage() {
                 <option value="pending">Pending</option>
                 <option value="approved">Approved</option>
                 <option value="rejected">Rejected</option>
-              </Select> */}
+              </Select>
+              */}
             </Flex>
           </CardHeader>
           <CardBody>
@@ -304,14 +268,14 @@ export default function PatientsPage() {
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {filteredPatients.length === 0 ? (
+                  {patients.length === 0 ? (
                     <Tr>
                       <Td colSpan={7} textAlign="center" py={6} color="gray.500">
                         No users found
                       </Td>
                     </Tr>
                   ) : (
-                    filteredPatients.map((patient) => (
+                    patients.map((patient) => (
                       <Tr key={patient.id}>
                         <Td>
                           <Avatar
@@ -355,7 +319,6 @@ export default function PatientsPage() {
             {/* Pagination controls */}
             {pagination.totalItems > 0 && (
               <Flex justify="space-between" align="center" mt={4} wrap="wrap" gap={4}>
-                {/* Replace the rows per page input and button with this updated version */}
                 <HStack>
                   <Text fontSize="sm" whiteSpace="nowrap">
                     Rows per page:
@@ -372,31 +335,30 @@ export default function PatientsPage() {
                           setRowsPerPageInput(value)
                         }
                       }}
-                      pr="2.5rem" // add padding for the button
-                    />
-                    <Box
-                      position="absolute"
-                      right="0.5rem"
-                      top="50%"
-                      transform="translateY(-50%)"
-                      as="button"
-                      onClick={() => {
-                        const value = Number(rowsPerPageInput)
-                        if (value > 0 && value <= 100) {
-                          setRowsPerPage(value)
-                          setCurrentPage(1) // Reset to first page when changing rows per page
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const value = Number(rowsPerPageInput)
+                          if (value > 0 && value <= 100) {
+                            setRowsPerPage(value)
+                          }
                         }
                       }}
-                      cursor="pointer"
-                      p={1}
-                      borderRadius="sm"
-                      _hover={{ bg: "blue.50" }}
-                      color="blue.500"
-                      bg="transparent"
-                      zIndex={1}
-                    >
-                      <Check size={16} />
-                    </Box>
+                    />
+                    <InputRightElement>
+                      <IconButton
+                        aria-label="Apply rows per page"
+                        icon={<Check size={16} />}
+                        size="xs"
+                        colorScheme="blue"
+                        variant="ghost"
+                        onClick={() => {
+                          const value = Number(rowsPerPageInput)
+                          if (value > 0 && value <= 100) {
+                            setRowsPerPage(value)
+                          }
+                        }}
+                      />
+                    </InputRightElement>
                   </InputGroup>
                 </HStack>
 
@@ -492,7 +454,7 @@ function PatientsSkeleton() {
                         <Skeleton height="16px" width="80px" />
                       </Td>
                       <Td>
-                        <Skeleton height="32px" width="60px" />
+                        <Skeleton height="16px" width="60px" />
                       </Td>
                     </Tr>
                   ))}
