@@ -37,8 +37,15 @@ import {
   Badge,
   Icon,
   Spinner,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
 } from "@chakra-ui/react"
-import { FiArrowLeft, FiUpload, FiX, FiSave, FiUser, FiMapPin, FiHome, FiInfo, FiCheck, FiTrash2 } from "react-icons/fi"
+import { FiArrowLeft, FiUpload, FiX, FiSave, FiUser, FiInfo, FiCheck, FiTrash2, FiLock } from "react-icons/fi"
 import api from "@/lib/api"
 
 type ProfileData = {
@@ -91,13 +98,26 @@ export default function EditProfilePage() {
   const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null)
   const [formProgress, setFormProgress] = useState(0)
 
-  // Confirmation dialog
+  // Change password modal state
+  const { isOpen: isChangePasswordOpen, onOpen: onChangePasswordOpen, onClose: onChangePasswordClose } = useDisclosure()
+  const [passwordData, setPasswordData] = useState({
+    current_password: "",
+    password: "",
+    password_confirmation: "",
+  })
+  const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({})
+  const [isPasswordSaving, setIsPasswordSaving] = useState(false)
+
+  // Confirmation dialog for profile save
   const { isOpen, onOpen, onClose } = useDisclosure()
   const cancelRef = useRef<HTMLButtonElement>(null)
 
-  // Delete confirmation dialog
+  // Delete confirmation dialog for profile image
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure()
   const deleteRef = useRef<HTMLButtonElement>(null)
+
+  // Password modal ref
+  const passwordCancelRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -198,6 +218,22 @@ export default function EditProfilePage() {
     setTimeout(calculateFormProgress, 100)
   }
 
+  const handlePasswordInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setPasswordData((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+
+    if (passwordErrors[name]) {
+      setPasswordErrors((prev) => {
+        const newErrors = { ...prev }
+        delete newErrors[name]
+        return newErrors
+      })
+    }
+  }
+
   const handleProfileImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
@@ -257,6 +293,27 @@ export default function EditProfilePage() {
     }
 
     setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const validatePasswordForm = () => {
+    const newErrors: Record<string, string> = {}
+
+    if (!passwordData.current_password.trim()) {
+      newErrors.current_password = "Current password is required"
+    }
+
+    if (!passwordData.password.trim()) {
+      newErrors.password = "New password is required"
+    } else if (passwordData.password.length < 8) {
+      newErrors.password = "New password must be at least 8 characters"
+    }
+
+    if (passwordData.password !== passwordData.password_confirmation) {
+      newErrors.password_confirmation = "Passwords do not match"
+    }
+
+    setPasswordErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
@@ -461,6 +518,74 @@ export default function EditProfilePage() {
     }
   }
 
+  const handleChangePassword = async () => {
+    if (!validatePasswordForm()) {
+      toast({
+        title: "Validation Error",
+        description: "Please fix the errors in the password form",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      })
+      return
+    }
+
+    setIsPasswordSaving(true)
+    try {
+      // Use the correct endpoint and method for changing password
+      const response = await api.put(
+        "https://e-pharmacybackend-production.up.railway.app/api/password/change",
+        {
+          current_password: passwordData.current_password,
+          password: passwordData.password,
+          password_confirmation: passwordData.password_confirmation,
+        },
+        {
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+      console.log("Password change response:", response.data)
+
+      if (response.data.status === "success") {
+        toast({
+          title: "Success",
+          description: "Password changed successfully",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+          icon: <Icon as={FiCheck} />,
+        })
+        setPasswordData({
+          current_password: "",
+          password: "",
+          password_confirmation: "",
+        })
+        onChangePasswordClose()
+      } else {
+        throw new Error(response.data.message || "Failed to change password")
+      }
+    } catch (error: any) {
+      console.error("Password change error:", error.response?.data || error.message)
+      if (error.response?.data?.errors) {
+        const apiErrors = error.response.data.errors
+        const formattedErrors: Record<string, string> = {}
+        Object.entries(apiErrors).forEach(([key, value]) => {
+          formattedErrors[key] = Array.isArray(value) ? value[0] : (value as string)
+        })
+        setPasswordErrors(formattedErrors)
+      }
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to change password",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      })
+    } finally {
+      setIsPasswordSaving(false)
+    }
+  }
+
   if (isLoading) {
     return <ProfileEditSkeleton />
   }
@@ -481,21 +606,6 @@ export default function EditProfilePage() {
               />
               <Heading size="lg">Edit Profile</Heading>
             </HStack>
-            {/* <HStack>
-              <Tooltip label={`Profile completion: ${formProgress}%`} hasArrow>
-                <Box w="100px" mr={2}>
-                  <Progress
-                    value={formProgress}
-                    size="sm"
-                    colorScheme={formProgress < 50 ? "red" : formProgress < 80 ? "yellow" : "green"}
-                    borderRadius="full"
-                  />
-                </Box>
-              </Tooltip>
-              <Button colorScheme="whiteAlpha" leftIcon={<FiSave />} isLoading={isSaving} onClick={onOpen}>
-                Save Changes
-              </Button>
-            </HStack> */}
           </Flex>
         </CardHeader>
         <CardBody>
@@ -574,9 +684,7 @@ export default function EditProfilePage() {
                   <Icon as={FiUser} mr={2} />
                   Profile Picture
                 </Heading>
-                <Text color="gray.600">
-                  Upload JPEG/PNG file.
-                </Text>
+                <Text color="gray.600">Upload JPEG/PNG file.</Text>
                 <HStack spacing={3}>
                   <FormControl>
                     <Button
@@ -692,7 +800,12 @@ export default function EditProfilePage() {
                   />
                   <FormErrorMessage>{errors.phone}</FormErrorMessage>
                 </FormControl>
-                <FormControl isInvalid={!!errors.address}>
+              </SimpleGrid>
+            </Box>
+
+            {/* Address */}
+            <Box>
+              <FormControl isInvalid={!!errors.address}>
                 <FormLabel fontWeight="medium">Address</FormLabel>
                 <Textarea
                   name="address"
@@ -706,10 +819,35 @@ export default function EditProfilePage() {
                 />
                 <FormErrorMessage>{errors.address}</FormErrorMessage>
               </FormControl>
-              </SimpleGrid>
             </Box>
 
-        
+            {/* Change Password */}
+            <Box>
+              <Heading
+                size="md"
+                mb={4}
+                color="blue.700"
+                p={3}
+                bg="blue.50"
+                borderRadius="md"
+                display="flex"
+                alignItems="center"
+              >
+                <Icon as={FiLock} mr={2} />
+                Change Password
+              </Heading>
+              <Button
+                leftIcon={<FiLock />}
+                colorScheme="blue"
+                variant="outline"
+                onClick={onChangePasswordOpen}
+                width={{ base: "full", md: "auto" }}
+              >
+                Change Password
+              </Button>
+            </Box>
+
+            <Divider />
 
             <Flex justify="space-between" mt={4}>
               <Button
@@ -728,7 +866,7 @@ export default function EditProfilePage() {
         </CardBody>
       </Card>
 
-      {/* Confirmation Dialog */}
+      {/* Confirmation Dialog for Profile Save */}
       <AlertDialog isOpen={isOpen} leastDestructiveRef={cancelRef} onClose={onClose}>
         <AlertDialogOverlay>
           <AlertDialogContent borderRadius="xl" boxShadow="xl">
@@ -795,6 +933,89 @@ export default function EditProfilePage() {
           </AlertDialogContent>
         </AlertDialogOverlay>
       </AlertDialog>
+
+      {/* Change Password Modal */}
+      <Modal isOpen={isChangePasswordOpen} onClose={onChangePasswordClose}>
+        <ModalOverlay />
+        <ModalContent borderRadius="xl" boxShadow="xl">
+          <ModalHeader bg="blue.50" borderTopRadius="xl" color="blue.700">
+            <HStack>
+              <Icon as={FiLock} />
+              <Text>Change Password</Text>
+            </HStack>
+          </ModalHeader>
+          <ModalCloseButton />
+          <form onSubmit={(e) => { e.preventDefault(); handleChangePassword(); }}>
+            <ModalBody py={4}>
+              <VStack spacing={4}>
+                <FormControl isInvalid={!!passwordErrors.current_password}>
+                  <FormLabel fontWeight="medium">Current Password</FormLabel>
+                  <Input
+                    name="current_password"
+                    type="password"
+                    value={passwordData.current_password}
+                    onChange={handlePasswordInputChange}
+                    placeholder="Enter current password"
+                    bg="white"
+                    borderColor="gray.300"
+                    _hover={{ borderColor: "blue.300" }}
+                    _focus={{ borderColor: "blue.500", boxShadow: "0 0 0 1px var(--chakra-colors-blue-500)" }}
+                  />
+                  <FormErrorMessage>{passwordErrors.current_password}</FormErrorMessage>
+                </FormControl>
+                <FormControl isInvalid={!!passwordErrors.password}>
+                  <FormLabel fontWeight="medium">New Password</FormLabel>
+                  <Input
+                    name="password"
+                    type="password"
+                    value={passwordData.password}
+                    onChange={handlePasswordInputChange}
+                    placeholder="Enter new password"
+                    bg="white"
+                    borderColor="gray.300"
+                    _hover={{ borderColor: "blue.300" }}
+                    _focus={{ borderColor: "blue.500", boxShadow: "0 0 0 1px var(--chakra-colors-blue-500)" }}
+                  />
+                  <FormErrorMessage>{passwordErrors.password}</FormErrorMessage>
+                </FormControl>
+                <FormControl isInvalid={!!passwordErrors.password_confirmation}>
+                  <FormLabel fontWeight="medium">Confirm New Password</FormLabel>
+                  <Input
+                    name="password_confirmation"
+                    type="password"
+                    value={passwordData.password_confirmation}
+                    onChange={handlePasswordInputChange}
+                    placeholder="Confirm new password"
+                    bg="white"
+                    borderColor="gray.300"
+                    _hover={{ borderColor: "blue.300" }}
+                    _focus={{ borderColor: "blue.500", boxShadow: "0 0 0 1px var(--chakra-colors-blue-500)" }}
+                  />
+                  <FormErrorMessage>{passwordErrors.password_confirmation}</FormErrorMessage>
+                </FormControl>
+              </VStack>
+            </ModalBody>
+            <ModalFooter>
+              <Button
+                ref={passwordCancelRef}
+                onClick={onChangePasswordClose}
+                variant="outline"
+                mr={3}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                colorScheme="blue"
+                isLoading={isPasswordSaving}
+                leftIcon={<FiCheck />}
+              >
+                Change Password
+              </Button>
+            </ModalFooter>
+          </form>
+        </ModalContent>
+      </Modal>
     </Container>
   )
 }
@@ -813,7 +1034,7 @@ function ProfileEditSkeleton() {
           <VStack spacing={8} align="stretch">
             <Flex direction={{ base: "column", md: "row" }} align="center" gap={8} bg="gray.50" p={6} borderRadius="md">
               <Skeleton height="150px" width="150px" borderRadius="full" />
-              <VStack align="flex-start" spacing={4} flex={1}>
+              <VStack align="flex-start" spacing={4} flex="1">
                 <Skeleton height="24px" width="150px" />
                 <Skeleton height="16px" width="300px" />
                 <Skeleton height="40px" width="150px" />
@@ -835,15 +1056,6 @@ function ProfileEditSkeleton() {
             <Box>
               <Skeleton height="24px" width="200px" mb={4} />
               <Skeleton height="120px" />
-            </Box>
-
-            <Box>
-              <Skeleton height="24px" width="200px" mb={4} />
-              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
-                <Skeleton height="80px" />
-                <Skeleton height="80px" />
-                <Skeleton height="80px" />
-              </SimpleGrid>
             </Box>
 
             <Flex justify="space-between" mt={4}>
