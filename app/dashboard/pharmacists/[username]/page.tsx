@@ -56,7 +56,7 @@ type PharmacistResponse = {
 }
 
 export default function PharmacistDetailPage() {
-  const { id } = useParams()
+  const { username } = useParams()
   const router = useRouter()
   const toast = useToast()
   const { token } = useAuth()
@@ -67,12 +67,14 @@ export default function PharmacistDetailPage() {
     const fetchPharmacistDetails = async () => {
       setIsLoading(true)
       try {
-        // Fetch pharmacist details using the new endpoint
+        // Fetch pharmacist details using the username endpoint
+        const usernameStr = Array.isArray(username) ? username[0] : username
         const response = await api.get<PharmacistResponse>(
-          `https://e-pharmacybackend-production.up.railway.app/api/pharmacists/${id}`,
+          `https://e-pharmacybackend-production.up.railway.app/api/pharmacists/username/${usernameStr}`,
         )
 
         console.log("Pharmacist details response:", response.data)
+        console.log("usernameStr:", usernameStr)
 
         if (response.data.status === "success" && response.data.data) {
           setPharmacist(response.data.data)
@@ -93,10 +95,10 @@ export default function PharmacistDetailPage() {
       }
     }
 
-    if (id) {
+    if (username) {
       fetchPharmacistDetails()
     }
-  }, [id, token, toast])
+  }, [username, token, toast])
 
   const handleApprovePharmacist = async () => {
     if (!pharmacist) return

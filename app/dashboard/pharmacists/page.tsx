@@ -192,7 +192,7 @@ export default function PharmacistsPage() {
   }
 
   const viewPharmacistDetails = (pharmacist: Pharmacist) => {
-    router.push(`/dashboard/pharmacists/${pharmacist.id}`)
+    router.push(`/dashboard/pharmacists/${pharmacist.username}`)
   }
 
   const getStatusBadgeColor = (status: Pharmacist["status"]) => {
