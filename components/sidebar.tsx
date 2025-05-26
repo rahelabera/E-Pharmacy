@@ -255,7 +255,7 @@ export function Sidebar({ isOpen, onClose, isCollapsed, toggleSidebar }: Sidebar
             {!isCollapsed && (
               <Flex direction="column" ml={2}>
                 <Text fontWeight="bold" color="white" fontSize="lg" lineHeight="1">
-                  E-Pharmacy
+                  ጤና-Care
                 </Text>
                 <Text fontSize="xs" color="white" lineHeight="1" mt={1}>
                   Admin Portal
